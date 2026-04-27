@@ -192,7 +192,7 @@ VALUES (1, 'Maison principale', 'MAISON2026');
 INSERT IGNORE INTO users (pseudonyme, mot_de_passe, email, nom, prenom, rolee, role_maison, maison_id, niveau, points, statut)
 VALUES (
   'admin',
-  '$2a$12$PbPpGP.Kq8QJvNlqPBPEIOk1V/DkWOMkDNEOKBNj.3e3IvdPJDNEO',
+  '$2a$12$0ZEVuQNiQlRXo0lVHzrL6u03.8gHAmXDTNKNYm6sPbTheLxYmuU0.',
   'admin@smarthome.fr',
   'Administrateur',
   'Smart Home',
@@ -207,9 +207,9 @@ VALUES (
 -- Utilisateurs exemple
 INSERT IGNORE INTO users (pseudonyme, mot_de_passe, email, nom, prenom, rolee, role_maison, maison_id, niveau, points, statut, connexions, actions)
 VALUES 
-('marie_dupont', '$2a$12$PbPpGP.Kq8QJvNlqPBPEIOk1V/DkWOMkDNEOKBNj.3e3IvdPJDNEO', 'marie@example.com', 'Dupont', 'Marie', 'habitant', 'mère', 1, 'Débutant', 0.75, 'Approuvé', 3, 2),
-('jean_martin', '$2a$12$PbPpGP.Kq8QJvNlqPBPEIOk1V/DkWOMkDNEOKBNj.3e3IvdPJDNEO', 'jean@example.com', 'Martin', 'Jean', 'habitant', 'père', 1, 'Intermédiaire', 3.50, 'Approuvé', 8, 6),
-('sophia_bernard', '$2a$12$PbPpGP.Kq8QJvNlqPBPEIOk1V/DkWOMkDNEOKBNj.3e3IvdPJDNEO', 'sophia@example.com', 'Bernard', 'Sophia', 'habitant', 'enfant', 1, 'Avancé', 5.75, 'Approuvé', 15, 12);
+('marie_dupont', '$2a$12$0ZEVuQNiQlRXo0lVHzrL6u03.8gHAmXDTNKNYm6sPbTheLxYmuU0.', 'marie@example.com', 'Dupont', 'Marie', 'habitant', 'mère', 1, 'Débutant', 0.75, 'Approuvé', 3, 2),
+('jean_martin', '$2a$12$0ZEVuQNiQlRXo0lVHzrL6u03.8gHAmXDTNKNYm6sPbTheLxYmuU0.', 'jean@example.com', 'Martin', 'Jean', 'habitant', 'père', 1, 'Intermédiaire', 3.50, 'Approuvé', 8, 6),
+('sophia_bernard', '$2a$12$0ZEVuQNiQlRXo0lVHzrL6u03.8gHAmXDTNKNYm6sPbTheLxYmuU0.', 'sophia@example.com', 'Bernard', 'Sophia', 'habitant', 'enfant', 1, 'Avancé', 5.75, 'Approuvé', 15, 12);
 
 -- Pièces de la maison
 INSERT IGNORE INTO piece_maison (id, nom, description) VALUES

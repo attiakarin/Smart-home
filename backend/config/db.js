@@ -37,6 +37,15 @@ async function ensureSchema() {
     )`
   );
 
+  await pool.query(
+    `CREATE TABLE IF NOT EXISTS historique_connexion (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      user_id INT NOT NULL,
+      heure_co DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY fk_his_co(user_id) REFERENCES users(id) ON DELETE CASCADE
+    )`
+  );
+
   const [columns] = await pool.query(
     `SELECT COLUMN_NAME
      FROM INFORMATION_SCHEMA.COLUMNS
