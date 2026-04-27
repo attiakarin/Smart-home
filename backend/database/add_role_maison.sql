@@ -1,0 +1,17 @@
+USE smart_home_db;
+
+ALTER TABLE users
+  ADD COLUMN IF NOT EXISTS role_maison VARCHAR(50) NOT NULL DEFAULT 'autre' AFTER rolee;
+
+CREATE TABLE IF NOT EXISTS maisons (
+  id              INT AUTO_INCREMENT PRIMARY KEY,
+  nom             VARCHAR(100) NOT NULL,
+  code_acces      VARCHAR(20) NOT NULL UNIQUE,
+  date_creation   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+ALTER TABLE users
+  ADD COLUMN IF NOT EXISTS maison_id INT NULL AFTER role_maison;
+
+ALTER TABLE objets
+  ADD COLUMN IF NOT EXISTS maison_id INT NULL AFTER id;
