@@ -7,13 +7,19 @@ const LEVELS = ['débutant', 'intermédiaire', 'avancé', 'expert'];
 const LEVEL_PTS = { débutant: 0, intermédiaire: 5, avancé: 15, expert: 30 };
 
 export default function AdminUsers() {
-  const { users, updateUser, deleteUser, register } = useAuth();
+  const levelOptions = ['Débutant', 'Intermédiaire', 'Avancé', 'Expert'];
+  const levelPoints = { Débutant: 0, Intermédiaire: 5, Avancé: 15, Expert: 30 };
+  const appRoles = [
+    { value: 'habitant', label: 'Habitant' },
+    { value: 'admin', label: 'Administrateur' },
+  ];
+  const { users, currentUser, updateUser, deleteUser, register } = useAuth();
   const [filter, setFilter]     = useState('all');
   const [editId, setEditId]     = useState(null);
   const [editForm, setEditForm] = useState({});
   const [deleteId, setDeleteId] = useState(null);
   const [showAdd, setShowAdd]   = useState(false);
-  const [addForm, setAddForm]   = useState({ login:'', prenom:'', nom:'', email:'', password:'', role:'père', niveau:'débutant' });
+  const [addForm, setAddForm]   = useState({ login:'', prenom:'', nom:'', email:'', password:'', role:'père', niveau:'Débutant' });
   const [addError, setAddError] = useState('');
   const [saved, setSaved]       = useState('');
 
@@ -23,13 +29,14 @@ export default function AdminUsers() {
 
   const startEdit = (u) => {
     setEditId(u.id);
-    setEditForm({ niveau: u.niveau, role: u.role, points: u.points, status: u.status });
+    setEditForm({ niveau: u.niveau, role: u.role, rolee: u.appRole || 'habitant', points: u.points, status: u.status });
   };
 
   const saveEdit = (id) => {
     updateUser(id, {
-      niveau: editForm.niveau,
+      niveau: editForm.rolee === 'admin' ? 'Expert' : editForm.niveau,
       role: editForm.role,
+      rolee: editForm.rolee,
       points: parseFloat(editForm.points) || 0,
       status: editForm.status,
     });
@@ -38,20 +45,25 @@ export default function AdminUsers() {
     setTimeout(() => setSaved(''), 2500);
   };
 
-  const handleApprove = (id) => updateUser(id, { status: 'approved' });
+  const handleApprove = (user) => updateUser(user.id, {
+    status: 'approved',
+    niveau: user.niveau || 'Débutant',
+    rolee: user.appRole || 'habitant',
+    points: user.points || 0,
+  });
   const handleReject  = (id) => updateUser(id, { status: 'rejected' });
 
-  const handleAdd = (e) => {
+  const handleAdd = async (e) => {
     e.preventDefault();
     setAddError('');
     if (!addForm.login || !addForm.email || !addForm.password) { setAddError('Champs obligatoires manquants.'); return; }
-    const res = register({ ...addForm, age: 0, sexe: 'Homme', dateNaissance: '', photo: null });
+    const res = await register({ ...addForm, accessCode: currentUser?.maisonCode || 'MAISON2026', age: 0, sexe: 'Homme', dateNaissance: '', photo: null });
     if (!res.success) { setAddError(res.error); return; }
     // Auto-approve admin-created users
     const newU = users[users.length - 1];
-    if (newU) updateUser(newU.id, { status: 'approved', niveau: addForm.niveau, points: LEVEL_PTS[addForm.niveau] });
+    if (newU) updateUser(newU.id, { status: 'approved', niveau: addForm.niveau, rolee: 'habitant', points: levelPoints[addForm.niveau] });
     setShowAdd(false);
-    setAddForm({ login:'', prenom:'', nom:'', email:'', password:'', role:'père', niveau:'débutant' });
+    setAddForm({ login:'', prenom:'', nom:'', email:'', password:'', role:'père', niveau:'Débutant' });
     setSaved('Utilisateur créé et approuvé !');
     setTimeout(() => setSaved(''), 2500);
   };
@@ -83,7 +95,7 @@ export default function AdminUsers() {
               <div className="form-group">
                 <label className="form-label" htmlFor="au-niveau">Niveau</label>
                 <select id="au-niveau" className="form-select" value={addForm.niveau} onChange={e => setAddForm(p => ({ ...p, niveau: e.target.value }))}>
-                  {LEVELS.map(l => <option key={l}>{l}</option>)}
+                  {levelOptions.map(l => <option key={l}>{l}</option>)}
                 </select>
               </div>
             </div>
@@ -110,6 +122,7 @@ export default function AdminUsers() {
               <th scope="col">Nom</th>
               <th scope="col">Email</th>
               <th scope="col">Niveau</th>
+              <th scope="col">Droits</th>
               <th scope="col">Points</th>
               <th scope="col">Statut</th>
               <th scope="col">Actions</th>
@@ -125,7 +138,7 @@ export default function AdminUsers() {
                   {editId === u.id ? (
                     <select className="form-select" style={{ padding: '.2rem .5rem', fontSize: '.85rem' }}
                       value={editForm.niveau} onChange={e => setEditForm(f => ({ ...f, niveau: e.target.value }))}>
-                      {LEVELS.map(l => <option key={l}>{l}</option>)}
+                      {levelOptions.map(l => <option key={l}>{l}</option>)}
                     </select>
                   ) : (
                     <span className="badge badge-primary">{u.niveau}</span>
@@ -133,9 +146,23 @@ export default function AdminUsers() {
                 </td>
                 <td>
                   {editId === u.id ? (
+                    <select className="form-select" style={{ padding: '.2rem .5rem', fontSize: '.85rem' }}
+                      value={editForm.rolee} onChange={e => setEditForm(f => ({
+                        ...f,
+                        rolee: e.target.value,
+                        niveau: e.target.value === 'admin' ? 'Expert' : f.niveau,
+                      }))}>
+                      {appRoles.map(role => <option key={role.value} value={role.value}>{role.label}</option>)}
+                    </select>
+                  ) : (
+                    <span className="badge badge-gray">{u.appRole === 'admin' ? 'Administrateur' : 'Habitant'}</span>
+                  )}
+                </td>
+                <td>
+                  {editId === u.id ? (
                     <input type="number" step="0.25" className="form-input" style={{ width: 80, padding: '.2rem .5rem', fontSize: '.85rem' }}
                       value={editForm.points} onChange={e => setEditForm(f => ({ ...f, points: e.target.value }))} />
-                  ) : u.points.toFixed(2)}
+                  ) : Number(u.points || 0).toFixed(2)}
                 </td>
                 <td>
                   <span className={`badge ${u.status === 'approved' ? 'badge-success' : u.status === 'pending' ? 'badge-warning' : 'badge-danger'}`}>
@@ -145,7 +172,7 @@ export default function AdminUsers() {
                 <td>
                   <div className="flex gap-1" style={{ flexWrap: 'wrap' }}>
                     {u.status === 'pending' && <>
-                      <button className="btn btn-sm btn-secondary" onClick={() => handleApprove(u.id)} aria-label={`Approuver ${u.login}`}><Check size={13} /></button>
+                      <button className="btn btn-sm btn-secondary" onClick={() => handleApprove(u)} aria-label={`Approuver ${u.login}`}><Check size={13} /></button>
                       <button className="btn btn-sm btn-danger"    onClick={() => handleReject(u.id)}  aria-label={`Rejeter ${u.login}`}><X size={13} /></button>
                     </>}
                     {editId === u.id ? (

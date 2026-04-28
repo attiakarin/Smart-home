@@ -9,18 +9,29 @@ export default function AddDeviceModal({ onClose }) {
     connectivity: 'Wi-Fi', description: '', energyConsumption: '',
     status: 'active',
   });
+  const [customType, setCustomType] = useState('');
   const [error, setError] = useState('');
 
   const handleChange = e => setForm(f => ({ ...f, [e.target.name]: e.target.value }));
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!form.name || !form.type || !form.brand || !form.room) {
+    setError('');
+    const finalType = form.type === 'Autre' ? customType.trim() : form.type;
+    if (!form.name || !finalType || !form.brand || !form.room) {
       setError('Veuillez remplir les champs obligatoires.');
       return;
     }
-    addDevice(form);
-    onClose();
+    if (form.type === 'Autre' && !customType.trim()) {
+      setError('Veuillez préciser le type personnalisé.');
+      return;
+    }
+    try {
+      await addDevice({ ...form, type: finalType });
+      onClose();
+    } catch (err) {
+      setError(err.message || 'Impossible d’ajouter cet objet.');
+    }
   };
 
   return (
@@ -46,7 +57,19 @@ export default function AddDeviceModal({ onClose }) {
                 <label className="form-label" htmlFor="ad-type">Type *</label>
                 <select id="ad-type" name="type" className="form-select" value={form.type} onChange={handleChange}>
                   {deviceTypes.map(t => <option key={t}>{t}</option>)}
+                  <option value="Autre">Autre</option>
                 </select>
+                {form.type === 'Autre' && (
+                  <input
+                    id="ad-type-custom"
+                    className="form-input mt-1"
+                    placeholder="Précisez le type…"
+                    value={customType}
+                    onChange={e => setCustomType(e.target.value)}
+                    required
+                    aria-label="Type personnalisé"
+                  />
+                )}
               </div>
               <div className="form-group">
                 <label className="form-label" htmlFor="ad-room">Pièce *</label>
