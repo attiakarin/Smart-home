@@ -206,9 +206,30 @@ export const usersAPI = {
 
 // Services consultables
 export const publicAPI = {
+  getCatalog: async (filters = {}) => {
+    const params = new URLSearchParams();
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value && value !== 'Tous') params.set(key, value);
+    });
+    const query = params.toString();
+    const response = await fetch(`${API_BASE_URL}/public/catalog${query ? `?${query}` : ''}`, {
+      headers: getHeaders(false),
+    });
+    return handleResponse(response);
+  },
+
+  getCatalogFilters: async () => {
+    const response = await fetch(`${API_BASE_URL}/public/catalog/filters`, {
+      headers: getHeaders(false),
+    });
+    return handleResponse(response);
+  },
+
   getServices: async (filters = {}) => {
     const params = new URLSearchParams();
-    if (filters.minLevel) params.set('minLevel', filters.minLevel);
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value && value !== 'Tous') params.set(key, value);
+    });
     const query = params.toString();
     const response = await fetch(`${API_BASE_URL}/public/services${query ? `?${query}` : ''}`, {
       headers: getHeaders(false),

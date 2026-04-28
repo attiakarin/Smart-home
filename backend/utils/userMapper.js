@@ -1,7 +1,7 @@
 const STATUS_TO_API = {
-  'Attente': 'pending',
-  'Approuvé': 'approved',
-  'Refusé': 'rejected',
+  Attente: 'pending',
+  Approuvé: 'approved',
+  Refusé: 'rejected',
 };
 
 export const STATUS_TO_DB = {
@@ -11,15 +11,23 @@ export const STATUS_TO_DB = {
 };
 
 export const LEVEL_TO_DB = {
-  'débutant': 'Débutant',
-  'intermédiaire': 'Intermédiaire',
-  'avancé': 'Avancé',
+  débutant: 'Débutant',
+  intermediaire: 'Intermédiaire',
+  intermédiaire: 'Intermédiaire',
+  avance: 'Avancé',
+  avancé: 'Avancé',
   expert: 'Expert',
-  'Débutant': 'Débutant',
-  'Intermédiaire': 'Intermédiaire',
-  'Avancé': 'Avancé',
+  Débutant: 'Débutant',
+  Intermédiaire: 'Intermédiaire',
+  Avancé: 'Avancé',
   Expert: 'Expert',
 };
+
+function formatDateOnly(value) {
+  if (!value) return value;
+  if (value instanceof Date) return value.toISOString().slice(0, 10);
+  return String(value).slice(0, 10);
+}
 
 export function mapUser(user) {
   if (!user) return null;
@@ -33,7 +41,8 @@ export function mapUser(user) {
     actions: Number(safeUser.actions || 0),
     login: safeUser.pseudonyme,
     sexe: safeUser.genre,
-    dateNaissance: safeUser.date_naissance,
+    dateNaissance: formatDateOnly(safeUser.date_naissance),
+    lastLogin: safeUser.derniere_connexion,
     role: safeUser.role_maison || 'autre',
     appRole: safeUser.rolee,
     maisonId: safeUser.maison_id,

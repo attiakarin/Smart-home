@@ -11,10 +11,10 @@ const router = Router();
 
 const POINTS_CONFIG = { connexion: 0.25, consultation: 0.50 };
 const LEVELS = {
-  'Débutant':      0,
+  'Débutant': 0,
   'Intermédiaire': 5,
-  'Avancé':        15,
-  'Expert':        30,
+  'Avancé': 15,
+  Expert: 30,
 };
 
 function generateHouseCode() {
@@ -22,13 +22,18 @@ function generateHouseCode() {
 }
 
 function computeLevel(points) {
-  if (points >= LEVELS['Expert'])        return 'Expert';
-  if (points >= LEVELS['Avancé'])        return 'Avancé';
+  if (points >= LEVELS.Expert) return 'Expert';
+  if (points >= LEVELS['Avancé']) return 'Avancé';
   if (points >= LEVELS['Intermédiaire']) return 'Intermédiaire';
   return 'Débutant';
 }
 
-// ─── POST /api/auth/login ──────────────────────────────────────────────────
+function normalizeDateOnly(value) {
+  if (value === undefined) return undefined;
+  if (value === null || value === '') return null;
+  return String(value).slice(0, 10);
+}
+
 router.post('/login',
   body('login').notEmpty().trim(),
   body('password').notEmpty(),
@@ -39,11 +44,11 @@ router.post('/login',
     const { login, password } = req.body;
 
     try {
-      const [rows] = await pool.query(
+      const { rows } = await pool.query(
         `SELECT users.*, maisons.nom AS maison_nom, maisons.code_acces
          FROM users
          LEFT JOIN maisons ON maisons.id = users.maison_id
-         WHERE pseudonyme = ?
+         WHERE pseudonyme = $1
          LIMIT 1`,
         [login]
       );
@@ -56,30 +61,30 @@ router.post('/login',
         return res.status(403).json({ error: 'Votre compte est en attente de validation par un administrateur.' });
       }
       if (user.statut === 'Refusé') {
-        return res.status(403).json({ error: 'Votre compte a été refusé par un administrateur.' });
+        return res.status(403).json({ error: 'Votre compte a ete refuse par un administrateur.' });
       }
       if (user.statut !== 'Approuvé') {
-        return res.status(403).json({ error: 'Votre compte n’est pas encore actif.' });
+        return res.status(403).json({ error: 'Votre compte n est pas encore actif.' });
       }
 
-      // Mise à jour points + connexions
-      const newPoints  = parseFloat((parseFloat(user.points) + POINTS_CONFIG.connexion).toFixed(2));
-      const newNiveau  = computeLevel(newPoints);
-      const now        = new Date();
+      const newPoints = parseFloat((parseFloat(user.points) + POINTS_CONFIG.connexion).toFixed(2));
+      const newNiveau = computeLevel(newPoints);
+      const now = new Date();
 
       await pool.query(
-        `UPDATE users SET points = ?, niveau = ?, connexions = connexions + 1, derniere_connexion = ?
-         WHERE id = ?`,
+        `UPDATE users
+         SET points = $1, niveau = $2, connexions = connexions + 1, derniere_connexion = $3
+         WHERE id = $4`,
         [newPoints, newNiveau, now, user.id]
       );
 
       await pool.query(
-        'INSERT INTO historique_connexion (user_id, heure_co) VALUES (?, ?)',
+        'INSERT INTO historique_connexion (user_id, heure_co) VALUES ($1, $2)',
         [user.id, now]
       );
 
       const payload = { id: user.id, login: user.pseudonyme, niveau: newNiveau, rolee: user.rolee, maisonId: user.maison_id };
-      const token   = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN || '7d' });
+      const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN || '7d' });
 
       res.json({ token, user: mapUser({ ...user, points: newPoints, niveau: newNiveau }) });
     } catch (err) {
@@ -89,7 +94,6 @@ router.post('/login',
   }
 );
 
-// ─── POST /api/auth/register ───────────────────────────────────────────────
 router.post('/register',
   body('login').notEmpty().trim().isLength({ min: 3 }),
   body('password').isLength({ min: 6 }),
@@ -104,49 +108,49 @@ router.post('/register',
     const { login, password, email, nom, prenom, age, sexe, dateNaissance, role, accessCode } = req.body;
 
     try {
-      // Vérifier doublon
-      const [existing] = await pool.query(
-        'SELECT id FROM users WHERE pseudonyme = ? OR email = ?',
+      const existing = await pool.query(
+        'SELECT id FROM users WHERE pseudonyme = $1 OR email = $2',
         [login, email]
       );
-      if (existing.length > 0) {
-        return res.status(409).json({ error: 'Login ou email déjà utilisé.' });
+      if (existing.rows.length > 0) {
+        return res.status(409).json({ error: 'Login ou email deja utilise.' });
       }
 
-      const [houses] = await pool.query(
-        'SELECT id FROM maisons WHERE code_acces = ? LIMIT 1',
+      const houses = await pool.query(
+        'SELECT id FROM maisons WHERE code_acces = $1 LIMIT 1',
         [accessCode.trim().toUpperCase()]
       );
-      const maison = houses[0];
+      const maison = houses.rows[0];
       if (!maison) {
-        return res.status(404).json({ error: 'Code d’accès maison invalide.' });
+        return res.status(404).json({ error: 'Code acces maison invalide.' });
       }
 
-      const password_hash = await bcrypt.hash(password, 12);
+      const passwordHash = await bcrypt.hash(password, 12);
 
-      const [result] = await pool.query(
-        `INSERT INTO users (pseudonyme, mot_de_passe, email, nom, prenom, age, genre, date_naissance, rolee, role_maison, maison_id,
-          niveau, points, statut, connexions, actions)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'habitant', ?, ?, 'Débutant', 0, 'Attente', 0, 0)`,
-        [login, password_hash, email, nom, prenom, age || null, sexe || null, dateNaissance || null, role || 'autre', maison.id]
+      const result = await pool.query(
+        `INSERT INTO users (
+          pseudonyme, mot_de_passe, email, nom, prenom, age, genre, date_naissance,
+          rolee, role_maison, maison_id, niveau, points, statut, connexions, actions
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'habitant', $9, $10, 'Débutant', 0, 'Attente', 0, 0)
+        RETURNING id`,
+        [login, passwordHash, email, nom, prenom, age || null, sexe || null, dateNaissance || null, role || 'autre', maison.id]
       );
 
-      // Envoyer email de confirmation
       try {
         await sendWelcomeEmail(email, prenom);
       } catch (mailErr) {
-        console.warn('Email non envoyé :', mailErr.message);
+        console.warn('Email non envoye :', mailErr.message);
       }
 
-      res.status(201).json({ message: 'Inscription en attente de validation par un administrateur.', id: result.insertId });
+      res.status(201).json({ message: 'Inscription en attente de validation par un administrateur.', id: result.rows[0].id });
     } catch (err) {
-      console.error('Erreur register :', err.message, err.code, err.sql);
+      console.error('Erreur register :', err.message);
       res.status(500).json({ error: 'Erreur serveur : ' + err.message });
     }
   }
 );
 
-// ─── POST /api/auth/create-house ────────────────────────────────────────────
 router.post('/create-house',
   body('houseName').notEmpty().trim().isLength({ min: 2 }),
   body('login').notEmpty().trim().isLength({ min: 3 }),
@@ -159,67 +163,70 @@ router.post('/create-house',
     if (!errors.isEmpty()) return res.status(400).json({ error: 'Informations invalides.' });
 
     const { houseName, login, password, email, nom, prenom, age, sexe, dateNaissance, role } = req.body;
-    const conn = await pool.getConnection();
+    const client = await pool.connect();
 
     try {
-      await conn.beginTransaction();
+      await client.query('BEGIN');
 
-      const [existing] = await conn.query(
-        'SELECT id FROM users WHERE pseudonyme = ? OR email = ?',
+      const existing = await client.query(
+        'SELECT id FROM users WHERE pseudonyme = $1 OR email = $2',
         [login, email]
       );
-      if (existing.length > 0) {
-        await conn.rollback();
-        return res.status(409).json({ error: 'Login ou email déjà utilisé.' });
+      if (existing.rows.length > 0) {
+        await client.query('ROLLBACK');
+        return res.status(409).json({ error: 'Login ou email deja utilise.' });
       }
 
       let code = generateHouseCode();
       for (let i = 0; i < 5; i += 1) {
-        const [sameCode] = await conn.query('SELECT id FROM maisons WHERE code_acces = ?', [code]);
-        if (sameCode.length === 0) break;
+        const sameCode = await client.query('SELECT id FROM maisons WHERE code_acces = $1', [code]);
+        if (sameCode.rows.length === 0) break;
         code = generateHouseCode();
       }
 
-      const [houseResult] = await conn.query(
-        'INSERT INTO maisons (nom, code_acces) VALUES (?, ?)',
+      const houseResult = await client.query(
+        'INSERT INTO maisons (nom, code_acces) VALUES ($1, $2) RETURNING id',
         [houseName, code]
       );
 
-      const password_hash = await bcrypt.hash(password, 12);
-      const [userResult] = await conn.query(
-        `INSERT INTO users (pseudonyme, mot_de_passe, email, nom, prenom, age, genre, date_naissance, rolee, role_maison, maison_id,
-          niveau, points, statut, connexions, actions)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'admin', ?, ?, 'Expert', 30, 'Approuvé', 0, 0)`,
-        [login, password_hash, email, nom, prenom, age || null, sexe || null, dateNaissance || null, role || 'admin', houseResult.insertId]
+      const houseId = houseResult.rows[0].id;
+      const passwordHash = await bcrypt.hash(password, 12);
+      const userResult = await client.query(
+        `INSERT INTO users (
+          pseudonyme, mot_de_passe, email, nom, prenom, age, genre, date_naissance,
+          rolee, role_maison, maison_id, niveau, points, statut, connexions, actions
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'admin', $9, $10, 'Expert', 30, 'Approuvé', 0, 0)
+        RETURNING id`,
+        [login, passwordHash, email, nom, prenom, age || null, sexe || null, dateNaissance || null, role || 'admin', houseId]
       );
 
-      await conn.commit();
+      await client.query('COMMIT');
 
       res.status(201).json({
-        message: 'Maison créée. Votre compte admin est actif.',
-        house: { id: houseResult.insertId, nom: houseName, code_acces: code },
-        userId: userResult.insertId,
+        message: 'Maison creee. Votre compte admin est actif.',
+        house: { id: houseId, nom: houseName, code_acces: code },
+        userId: userResult.rows[0].id,
       });
     } catch (err) {
-      await conn.rollback();
-      console.error('Erreur création maison :', err);
+      await client.query('ROLLBACK');
+      console.error('Erreur creation maison :', err);
       res.status(500).json({ error: 'Erreur serveur.' });
     } finally {
-      conn.release();
+      client.release();
     }
   }
 );
 
-// ─── GET /api/auth/me ──────────────────────────────────────────────────────
 router.get('/me', authenticate, async (req, res) => {
   try {
-    const [rows] = await pool.query(
+    const { rows } = await pool.query(
       `SELECT users.id, pseudonyme, email, users.nom, prenom, age, genre, date_naissance, rolee, role_maison, maison_id,
               niveau, points, photo, statut, connexions, actions, derniere_connexion,
               maisons.nom AS maison_nom, maisons.code_acces
        FROM users
        LEFT JOIN maisons ON maisons.id = users.maison_id
-       WHERE users.id = ?`,
+       WHERE users.id = $1`,
       [req.user.id]
     );
     if (!rows[0]) return res.status(404).json({ error: 'Utilisateur introuvable.' });
@@ -229,54 +236,57 @@ router.get('/me', authenticate, async (req, res) => {
   }
 });
 
-// ─── PUT /api/auth/profile ─────────────────────────────────────────────────
 router.put('/profile', authenticate, async (req, res) => {
-  const { nom, prenom, age, genre, dateNaissance, role, rolee, photo, password } = req.body;
+  const { nom, prenom, age, genre, role, rolee, photo, password } = req.body;
+  const dateNaissance = normalizeDateOnly(req.body.dateNaissance ?? req.body.date_naissance);
 
   try {
-    let mot_de_passe = undefined;
+    let motDePasse;
     if (password) {
       if (password.length < 6) return res.status(400).json({ error: 'Mot de passe trop court.' });
-      mot_de_passe = await bcrypt.hash(password, 12);
+      motDePasse = await bcrypt.hash(password, 12);
     }
 
     const fields = [];
     const values = [];
 
-    if (nom !== undefined)           { fields.push('nom = ?');            values.push(nom); }
-    if (prenom !== undefined)        { fields.push('prenom = ?');         values.push(prenom); }
-    if (age !== undefined)           { fields.push('age = ?');            values.push(age); }
-    if (genre !== undefined)         { fields.push('genre = ?');          values.push(genre); }
-    if (dateNaissance !== undefined) { fields.push('date_naissance = ?'); values.push(dateNaissance); }
-    if (role !== undefined)          { fields.push('role_maison = ?');    values.push(role); }
-    if (rolee !== undefined)         { fields.push('rolee = ?');          values.push(rolee); }
-    if (photo !== undefined)         { fields.push('photo = ?');          values.push(photo); }
-    if (mot_de_passe !== undefined)  { fields.push('mot_de_passe = ?');  values.push(mot_de_passe); }
+    function addField(column, value) {
+      values.push(value);
+      fields.push(`${column} = $${values.length}`);
+    }
 
-    if (fields.length === 0) return res.status(400).json({ error: 'Aucun champ à modifier.' });
+    if (nom !== undefined) addField('nom', nom);
+    if (prenom !== undefined) addField('prenom', prenom);
+    if (age !== undefined) addField('age', age);
+    if (genre !== undefined) addField('genre', genre);
+    if (dateNaissance !== undefined) addField('date_naissance', dateNaissance);
+    if (role !== undefined) addField('role_maison', role);
+    if (rolee !== undefined) addField('rolee', rolee);
+    if (photo !== undefined) addField('photo', photo);
+    if (motDePasse !== undefined) addField('mot_de_passe', motDePasse);
+
+    if (fields.length === 0) return res.status(400).json({ error: 'Aucun champ a modifier.' });
 
     values.push(req.user.id);
-    await pool.query(`UPDATE users SET ${fields.join(', ')} WHERE id = ?`, values);
+    await pool.query(`UPDATE users SET ${fields.join(', ')} WHERE id = $${values.length}`, values);
 
-    res.json({ message: 'Profil mis à jour.' });
+    res.json({ message: 'Profil mis a jour.' });
   } catch (err) {
     console.error('Erreur update profil :', err);
     res.status(500).json({ error: 'Erreur serveur.' });
   }
 });
 
-// ─── POST /api/auth/log-action ─────────────────────────────────────────────
-// Incrémente actions + points consultation pour l'utilisateur connecté
 router.post('/log-action', authenticate, async (req, res) => {
   try {
-    const [rows] = await pool.query('SELECT points, actions FROM users WHERE id = ?', [req.user.id]);
+    const { rows } = await pool.query('SELECT points, actions FROM users WHERE id = $1', [req.user.id]);
     if (!rows[0]) return res.status(404).json({ error: 'Utilisateur introuvable.' });
 
     const newPoints = parseFloat((parseFloat(rows[0].points) + POINTS_CONFIG.consultation).toFixed(2));
     const newNiveau = computeLevel(newPoints);
 
     await pool.query(
-      'UPDATE users SET actions = actions + 1, points = ?, niveau = ? WHERE id = ?',
+      'UPDATE users SET actions = actions + 1, points = $1, niveau = $2 WHERE id = $3',
       [newPoints, newNiveau, req.user.id]
     );
     res.json({ points: newPoints, niveau: newNiveau, actions: Number(rows[0].actions || 0) + 1 });

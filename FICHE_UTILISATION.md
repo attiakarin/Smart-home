@@ -14,17 +14,41 @@ https://nodejs.org/en/download
 
 ---
 
-## Lancement du projet
+## Installation et Lancement
 
+### Installation des dépendances
+
+**Option 1 : Installation complète** (frontend + backend)
 ```bash
-# Installer les dépendances
 npm install
+npm install --prefix backend
+```
 
-# Démarrer en mode développement
+**Option 2 : Installer uniquement le backend** *(si vous avez le problème `nodemon` non reconnu)*
+```bash
+npm install --prefix backend
+```
+
+> ⚠️ **Important** : Si `npm run dev` vous dit que `nodemon` n'est pas reconnu, c'est que les dépendances du backend ne sont pas installées. Exécutez `npm install --prefix backend`.
+
+### Lancer l'application
+
+**Mode complet** (frontend + backend ensemble)
+```bash
 npm run dev
 ```
 
+**Frontend uniquement**
+```bash
+npm run dev:frontend
+```
 L'application sera accessible sur **http://localhost:5173**
+
+**Backend uniquement**
+```bash
+npm run dev:backend
+```
+L'API sera accessible sur **http://localhost:3000** (voir configuration dans `backend/server.js`)
 
 ---
 

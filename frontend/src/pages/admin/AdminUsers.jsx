@@ -124,6 +124,7 @@ export default function AdminUsers() {
               <th scope="col">Niveau</th>
               <th scope="col">Droits</th>
               <th scope="col">Points</th>
+              <th scope="col">Dernière connexion</th>
               <th scope="col">Statut</th>
               <th scope="col">Actions</th>
             </tr>
@@ -163,6 +164,9 @@ export default function AdminUsers() {
                     <input type="number" step="0.25" className="form-input" style={{ width: 80, padding: '.2rem .5rem', fontSize: '.85rem' }}
                       value={editForm.points} onChange={e => setEditForm(f => ({ ...f, points: e.target.value }))} />
                   ) : Number(u.points || 0).toFixed(2)}
+                </td>
+                <td style={{ fontSize: '.82rem', color: 'var(--color-text-muted)' }}>
+                  {u.lastLogin ? new Date(u.lastLogin).toLocaleDateString('fr-FR', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Jamais'}
                 </td>
                 <td>
                   <span className={`badge ${u.status === 'approved' ? 'badge-success' : u.status === 'pending' ? 'badge-warning' : 'badge-danger'}`}>

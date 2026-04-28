@@ -7,26 +7,26 @@ const router = Router();
 
 async function findRoomId(roomName) {
   if (!roomName) return null;
-  const [rooms] = await pool.query('SELECT id FROM piece_maison WHERE nom = ? LIMIT 1', [roomName]);
-  return rooms[0]?.id || null;
+  const { rows } = await pool.query('SELECT id FROM piece_maison WHERE nom = $1 LIMIT 1', [roomName]);
+  return rows[0]?.id || null;
 }
 
 async function fetchDevice(id, maisonId) {
-  const [rows] = await pool.query(
+  const { rows } = await pool.query(
     `SELECT objets.*, piece_maison.nom AS piece_nom
      FROM objets
      LEFT JOIN piece_maison ON piece_maison.id = objets.piece_id
-     WHERE objets.id = ?
-       AND (objets.maison_id = ? OR ? IS NULL)`,
-    [id, maisonId || null, maisonId || null]
+     WHERE objets.id = $1
+       AND (objets.maison_id = $2 OR $2 IS NULL)`,
+    [id, maisonId || null]
   );
   if (!rows[0]) return null;
 
-  const [configs] = await pool.query(
-    'SELECT param_nom, param_valeur, param_type FROM config_objet WHERE objet_id = ?',
+  const configs = await pool.query(
+    'SELECT param_nom, param_valeur, param_type FROM config_objet WHERE objet_id = $1',
     [id]
   );
-  const settings = configs.reduce((acc, item) => {
+  const settings = configs.rows.reduce((acc, item) => {
     acc[item.param_nom] = item.param_valeur;
     return acc;
   }, {});
@@ -42,8 +42,9 @@ async function saveDeviceSettings(deviceId, settings = {}) {
     const paramType = typeof value === 'number' ? 'nombre' : typeof value === 'boolean' ? 'booléen' : 'texte';
     await pool.query(
       `INSERT INTO config_objet (objet_id, param_nom, param_valeur, param_type)
-       VALUES (?, ?, ?, ?)
-       ON DUPLICATE KEY UPDATE param_valeur = VALUES(param_valeur), param_type = VALUES(param_type)`,
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (objet_id, param_nom)
+       DO UPDATE SET param_valeur = EXCLUDED.param_valeur, param_type = EXCLUDED.param_type`,
       [deviceId, key, String(value), paramType]
     );
   }
@@ -51,16 +52,16 @@ async function saveDeviceSettings(deviceId, settings = {}) {
 
 router.get('/', authenticate, async (req, res) => {
   try {
-    const [devices] = await pool.query(
+    const { rows } = await pool.query(
       `SELECT objets.*, piece_maison.nom AS piece_nom
        FROM objets
        LEFT JOIN piece_maison ON piece_maison.id = objets.piece_id
-       WHERE objets.maison_id = ? OR ? IS NULL
+       WHERE objets.maison_id = $1 OR $1 IS NULL
        ORDER BY objets.nom`,
-      [req.user.maisonId || null, req.user.maisonId || null]
+      [req.user.maisonId || null]
     );
 
-    res.json(devices.map(mapDevice));
+    res.json(rows.map(mapDevice));
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Erreur serveur.' });
@@ -72,12 +73,12 @@ router.get('/:id', authenticate, async (req, res) => {
     const device = await fetchDevice(req.params.id, req.user.maisonId);
     if (!device) return res.status(404).json({ error: 'Objet introuvable.' });
 
-    const [history] = await pool.query(
-      'SELECT valeur, unite, enregistre_a FROM historique_objet WHERE objt_id = ? ORDER BY enregistre_a DESC LIMIT 30',
+    const { rows } = await pool.query(
+      'SELECT valeur, unite, enregistre_a FROM historique_objet WHERE objt_id = $1 ORDER BY enregistre_a DESC LIMIT 30',
       [req.params.id]
     );
 
-    res.json({ ...device, history });
+    res.json({ ...device, history: rows });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Erreur serveur.' });
@@ -93,14 +94,18 @@ router.post('/', authenticate, requireModule('gestion'), async (req, res) => {
   try {
     if (!piece_id) piece_id = await findRoomId(req.body.room);
     if (!piece_id) {
-      const [rooms] = await pool.query('SELECT id FROM piece_maison ORDER BY id LIMIT 1');
-      piece_id = rooms[0]?.id;
+      const { rows } = await pool.query('SELECT id FROM piece_maison ORDER BY id LIMIT 1');
+      piece_id = rows[0]?.id;
     }
 
     const dbStatus = mapStatusToDb(statut || 'inactive');
-    const [result] = await pool.query(
-      `INSERT INTO objets (maison_id, nom, type_obj, marque, piece_id, statut, type_connexion, signal_obj, batterie, energie_consommer, description, date_creation)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+    const result = await pool.query(
+      `INSERT INTO objets (
+        maison_id, nom, type_obj, marque, piece_id, statut, type_connexion,
+        signal_obj, batterie, energie_consommer, description, date_creation
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW())
+      RETURNING id`,
       [
         req.user.maisonId || null,
         nom,
@@ -116,13 +121,14 @@ router.post('/', authenticate, requireModule('gestion'), async (req, res) => {
       ]
     );
 
+    const deviceId = result.rows[0].id;
     await pool.query(
-      'INSERT INTO historique_objet (objt_id, valeur, unite) VALUES (?, ?, ?)',
-      [result.insertId, dbStatus === 'Active' ? 1 : 0, 'etat']
+      'INSERT INTO historique_objet (objt_id, valeur, unite) VALUES ($1, $2, $3)',
+      [deviceId, dbStatus === 'Active' ? 1 : 0, 'etat']
     );
-    await saveDeviceSettings(result.insertId, req.body.settings);
+    await saveDeviceSettings(deviceId, req.body.settings);
 
-    const created = await fetchDevice(result.insertId, req.user.maisonId);
+    const created = await fetchDevice(deviceId, req.user.maisonId);
     res.status(201).json(created);
   } catch (err) {
     console.error(err);
@@ -143,23 +149,25 @@ router.put('/:id', authenticate, requireModule('gestion'), async (req, res) => {
 
   for (const key of allowed) {
     if (mapped[key] !== undefined) {
-      fields.push(`${key} = ?`);
       values.push(key === 'statut' ? mapStatusToDb(mapped[key]) : mapped[key]);
+      fields.push(`${key} = $${values.length}`);
     }
   }
 
-  if (fields.length === 0) return res.status(400).json({ error: 'Aucun champ à modifier.' });
+  if (fields.length === 0) return res.status(400).json({ error: 'Aucun champ a modifier.' });
 
   try {
+    values.push(req.params.id, req.user.maisonId || null);
     await pool.query(
-      `UPDATE objets SET ${fields.join(', ')} WHERE id = ? AND (maison_id = ? OR ? IS NULL)`,
-      [...values, req.params.id, req.user.maisonId || null, req.user.maisonId || null]
+      `UPDATE objets SET ${fields.join(', ')}
+       WHERE id = $${values.length - 1} AND (maison_id = $${values.length} OR $${values.length} IS NULL)`,
+      values
     );
 
     if (mapped.statut !== undefined) {
       const dbStatus = mapStatusToDb(mapped.statut);
       await pool.query(
-        'INSERT INTO historique_objet (objt_id, valeur, unite) VALUES (?, ?, ?)',
+        'INSERT INTO historique_objet (objt_id, valeur, unite) VALUES ($1, $2, $3)',
         [req.params.id, dbStatus === 'Active' ? 1 : 0, 'etat']
       );
     }
@@ -177,16 +185,16 @@ router.patch('/:id/toggle', authenticate, requireModule('gestion'), async (req, 
   try {
     await pool.query(
       `UPDATE objets
-       SET statut = IF(statut = 'Active', 'Inactive', 'Active')
-       WHERE id = ? AND (maison_id = ? OR ? IS NULL)`,
-      [req.params.id, req.user.maisonId || null, req.user.maisonId || null]
+       SET statut = CASE WHEN statut = 'Active' THEN 'Inactive' ELSE 'Active' END
+       WHERE id = $1 AND (maison_id = $2 OR $2 IS NULL)`,
+      [req.params.id, req.user.maisonId || null]
     );
 
     const updated = await fetchDevice(req.params.id, req.user.maisonId);
     if (!updated) return res.status(404).json({ error: 'Objet introuvable.' });
 
     await pool.query(
-      'INSERT INTO historique_objet (objt_id, valeur, unite) VALUES (?, ?, ?)',
+      'INSERT INTO historique_objet (objt_id, valeur, unite) VALUES ($1, $2, $3)',
       [req.params.id, updated.status === 'active' ? 1 : 0, 'etat']
     );
 
@@ -200,16 +208,18 @@ router.patch('/:id/toggle', authenticate, requireModule('gestion'), async (req, 
 router.delete('/:id', authenticate, requireModule('administration'), async (req, res) => {
   try {
     await pool.query(
-      `DELETE historique_objet FROM historique_objet
-       INNER JOIN objets ON objets.id = historique_objet.objt_id
-       WHERE objets.id = ? AND (objets.maison_id = ? OR ? IS NULL)`,
-      [req.params.id, req.user.maisonId || null, req.user.maisonId || null]
+      `DELETE FROM historique_objet
+       USING objets
+       WHERE objets.id = historique_objet.objt_id
+         AND objets.id = $1
+         AND (objets.maison_id = $2 OR $2 IS NULL)`,
+      [req.params.id, req.user.maisonId || null]
     );
     await pool.query(
-      'DELETE FROM objets WHERE id = ? AND (maison_id = ? OR ? IS NULL)',
-      [req.params.id, req.user.maisonId || null, req.user.maisonId || null]
+      'DELETE FROM objets WHERE id = $1 AND (maison_id = $2 OR $2 IS NULL)',
+      [req.params.id, req.user.maisonId || null]
     );
-    res.json({ message: 'Objet supprimé.' });
+    res.json({ message: 'Objet supprime.' });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Erreur serveur.' });
@@ -221,8 +231,8 @@ router.get('/:id/history', authenticate, async (req, res) => {
     const device = await fetchDevice(req.params.id, req.user.maisonId);
     if (!device) return res.status(404).json({ error: 'Objet introuvable.' });
 
-    const [rows] = await pool.query(
-      'SELECT valeur, unite, enregistre_a FROM historique_objet WHERE objt_id = ? ORDER BY enregistre_a ASC',
+    const { rows } = await pool.query(
+      'SELECT valeur, unite, enregistre_a FROM historique_objet WHERE objt_id = $1 ORDER BY enregistre_a ASC',
       [req.params.id]
     );
     res.json(rows);
