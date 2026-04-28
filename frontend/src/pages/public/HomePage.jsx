@@ -70,6 +70,7 @@ function PublicHome() {
   const [feature, setFeature] = useState(ALL);
   const [connectivity, setConnectivity] = useState(ALL);
   const [serviceCategory, setServiceCategory] = useState(ALL);
+  const [showFilters, setShowFilters] = useState(false);
 
   useEffect(() => {
     const loadPublicData = async () => {
@@ -170,20 +171,31 @@ function PublicHome() {
             </button>
           </div>
 
-          <form className="catalog-filters" role="search" aria-label="Filtrer le catalogue" onSubmit={event => event.preventDefault()}>
-            <input
-              type="search"
-              className="form-input"
-              placeholder="Rechercher thermostat, sécurité, Wi-Fi..."
-              value={query}
-              onChange={event => setQuery(event.target.value)}
-              aria-label="Recherche catalogue"
-            />
-            <FilterSelect label="Type" value={type} onChange={setType} options={[ALL, ...filters.types]} />
-            <FilterSelect label="Marque" value={brand} onChange={setBrand} options={[ALL, ...filters.brands]} />
-            <FilterSelect label="Fonction" value={feature} onChange={setFeature} options={[ALL, ...filters.features]} />
-            <FilterSelect label="Connexion" value={connectivity} onChange={setConnectivity} options={[ALL, ...filters.connectivities]} />
+          <form className="catalog-search" role="search" aria-label="Rechercher dans le catalogue" onSubmit={event => event.preventDefault()}>
+            <div className="catalog-search__bar">
+              <Search size={18} aria-hidden="true" />
+              <input
+                type="search"
+                className="form-input"
+                placeholder="Rechercher thermostat, caméra, sécurité, Wi-Fi..."
+                value={query}
+                onChange={event => setQuery(event.target.value)}
+                aria-label="Recherche catalogue"
+              />
+            </div>
+            <button type="button" className="btn btn-outline" onClick={() => setShowFilters(value => !value)}>
+              <Filter size={16} aria-hidden="true" /> Filtres
+            </button>
           </form>
+
+          {showFilters && (
+            <div className="catalog-filters" aria-label="Filtres du catalogue">
+              <FilterSelect label="Type" value={type} onChange={setType} options={[ALL, ...filters.types]} />
+              <FilterSelect label="Marque" value={brand} onChange={setBrand} options={[ALL, ...filters.brands]} />
+              <FilterSelect label="Fonction" value={feature} onChange={setFeature} options={[ALL, ...filters.features]} />
+              <FilterSelect label="Connexion" value={connectivity} onChange={setConnectivity} options={[ALL, ...filters.connectivities]} />
+            </div>
+          )}
 
           {error && <div className="alert alert-error mb-3" role="alert">{error}</div>}
           {loading ? (

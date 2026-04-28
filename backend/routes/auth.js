@@ -34,6 +34,20 @@ function normalizeDateOnly(value) {
   return String(value).slice(0, 10);
 }
 
+function calculateAge(dateValue) {
+  if (!dateValue) return null;
+  const birthDate = new Date(dateValue);
+  if (Number.isNaN(birthDate.getTime())) return null;
+
+  const today = new Date();
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const monthDelta = today.getMonth() - birthDate.getMonth();
+  if (monthDelta < 0 || (monthDelta === 0 && today.getDate() < birthDate.getDate())) {
+    age -= 1;
+  }
+  return age >= 0 ? age : null;
+}
+
 router.post('/login',
   body('login').notEmpty().trim(),
   body('password').notEmpty(),
@@ -105,7 +119,9 @@ router.post('/register',
     const errors = validationResult(req);
     if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
 
-    const { login, password, email, nom, prenom, age, sexe, dateNaissance, role, accessCode } = req.body;
+    const { login, password, email, nom, prenom, sexe, role, accessCode } = req.body;
+    const dateNaissance = normalizeDateOnly(req.body.dateNaissance ?? req.body.date_naissance);
+    const age = calculateAge(dateNaissance);
 
     try {
       const existing = await pool.query(
@@ -134,7 +150,7 @@ router.post('/register',
         )
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'habitant', $9, $10, 'Débutant', 0, 'Attente', 0, 0)
         RETURNING id`,
-        [login, passwordHash, email, nom, prenom, age || null, sexe || null, dateNaissance || null, role || 'autre', maison.id]
+        [login, passwordHash, email, nom, prenom, age, sexe || null, dateNaissance, role || 'autre', maison.id]
       );
 
       try {
@@ -162,7 +178,9 @@ router.post('/create-house',
     const errors = validationResult(req);
     if (!errors.isEmpty()) return res.status(400).json({ error: 'Informations invalides.' });
 
-    const { houseName, login, password, email, nom, prenom, age, sexe, dateNaissance, role } = req.body;
+    const { houseName, login, password, email, nom, prenom, sexe } = req.body;
+    const dateNaissance = normalizeDateOnly(req.body.dateNaissance ?? req.body.date_naissance);
+    const age = calculateAge(dateNaissance);
     const client = await pool.connect();
 
     try {
@@ -198,7 +216,7 @@ router.post('/create-house',
         )
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'admin', $9, $10, 'Expert', 30, 'Approuvé', 0, 0)
         RETURNING id`,
-        [login, passwordHash, email, nom, prenom, age || null, sexe || null, dateNaissance || null, role || 'admin', houseId]
+        [login, passwordHash, email, nom, prenom, age, sexe || null, dateNaissance, 'admin', houseId]
       );
 
       await client.query('COMMIT');
@@ -237,8 +255,9 @@ router.get('/me', authenticate, async (req, res) => {
 });
 
 router.put('/profile', authenticate, async (req, res) => {
-  const { nom, prenom, age, genre, role, rolee, photo, password } = req.body;
+  const { nom, prenom, genre, role, rolee, photo, password } = req.body;
   const dateNaissance = normalizeDateOnly(req.body.dateNaissance ?? req.body.date_naissance);
+  const age = dateNaissance !== undefined ? calculateAge(dateNaissance) : req.body.age;
 
   try {
     let motDePasse;

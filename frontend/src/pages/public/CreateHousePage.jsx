@@ -3,6 +3,17 @@ import { Link } from 'react-router-dom';
 import { Home, KeyRound, ShieldCheck, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
+function calculateAge(dateValue) {
+  if (!dateValue) return '';
+  const birthDate = new Date(dateValue);
+  if (Number.isNaN(birthDate.getTime())) return '';
+  const today = new Date();
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const monthDelta = today.getMonth() - birthDate.getMonth();
+  if (monthDelta < 0 || (monthDelta === 0 && today.getDate() < birthDate.getDate())) age -= 1;
+  return age >= 0 ? String(age) : '';
+}
+
 export default function CreateHousePage() {
   const { createHouse, loading } = useAuth();
   const [form, setForm] = useState({
@@ -16,14 +27,18 @@ export default function CreateHousePage() {
     age: '',
     sexe: 'Homme',
     dateNaissance: '',
-    role: 'admin',
   });
   const [showPw, setShowPw] = useState(false);
   const [error, setError] = useState('');
   const [created, setCreated] = useState(null);
 
   const handleChange = (event) => {
-    setForm(previous => ({ ...previous, [event.target.name]: event.target.value }));
+    const { name, value } = event.target;
+    setForm(previous => ({
+      ...previous,
+      [name]: value,
+      ...(name === 'dateNaissance' ? { age: calculateAge(value) } : {}),
+    }));
   };
 
   const handleSubmit = async (event) => {
@@ -47,7 +62,7 @@ export default function CreateHousePage() {
     const { confirmPassword, ...data } = form;
     const result = await createHouse({
       ...data,
-      age: parseInt(data.age) || null,
+      age: calculateAge(data.dateNaissance) || null,
       sexe: genreMap[data.sexe] || '-',
     });
 
@@ -111,14 +126,8 @@ export default function CreateHousePage() {
                 <input id="house-email" name="email" type="email" className="form-input" value={form.email} onChange={handleChange} required />
               </div>
               <div className="form-group">
-                <label className="form-label" htmlFor="house-role">Rôle dans la maison</label>
-                <select id="house-role" name="role" className="form-select" value={form.role} onChange={handleChange}>
-                  {['admin', 'mère', 'père', 'enfant', 'autre'].map(role => <option key={role}>{role}</option>)}
-                </select>
-              </div>
-              <div className="form-group">
                 <label className="form-label" htmlFor="house-age">Âge</label>
-                <input id="house-age" name="age" type="number" min="1" max="120" className="form-input" value={form.age} onChange={handleChange} />
+                <input id="house-age" name="age" type="number" min="1" max="120" className="form-input" value={form.age} readOnly />
               </div>
               <div className="form-group">
                 <label className="form-label" htmlFor="house-sexe">Sexe / Genre</label>

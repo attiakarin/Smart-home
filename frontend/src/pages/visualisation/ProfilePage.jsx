@@ -1,7 +1,18 @@
 import { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { User, Edit3, Save, X, Eye, EyeOff } from 'lucide-react';
+import { User, Edit3, Save, X, Eye, EyeOff, Camera, Trash2 } from 'lucide-react';
 import { LEVELS } from '../../data/mockData';
+
+function calculateAge(dateValue) {
+  if (!dateValue) return '';
+  const birthDate = new Date(dateValue);
+  if (Number.isNaN(birthDate.getTime())) return '';
+  const today = new Date();
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const monthDelta = today.getMonth() - birthDate.getMonth();
+  if (monthDelta < 0 || (monthDelta === 0 && today.getDate() < birthDate.getDate())) age -= 1;
+  return age >= 0 ? String(age) : '';
+}
 
 export default function ProfilePage() {
   const { currentUser, updateUser, computeLevel, users } = useAuth();
@@ -27,7 +38,34 @@ export default function ProfilePage() {
   const nextPts     = nextLvl ? LEVELS[nextLvl].points : null;
   const progress    = nextPts ? Math.min(100, (currentUser.points / nextPts) * 100).toFixed(0) : 100;
 
-  const handleChange = e => setForm(f => ({ ...f, [e.target.name]: e.target.value }));
+  const handleChange = e => {
+    const { name, value } = e.target;
+    setForm(f => ({
+      ...f,
+      [name]: value,
+      ...(name === 'dateNaissance' ? { age: calculateAge(value) } : {}),
+    }));
+  };
+
+  const handlePhotoChange = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      setError('Veuillez choisir une image.');
+      return;
+    }
+    if (file.size > 750 * 1024) {
+      setError('La photo doit faire moins de 750 Ko.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setForm(previous => ({ ...previous, photo: reader.result }));
+      setError('');
+    };
+    reader.readAsDataURL(file);
+  };
 
   const handleSave = (e) => {
     e.preventDefault();
@@ -44,10 +82,11 @@ export default function ProfilePage() {
       login: form.login,
       prenom: form.prenom,
       nom: form.nom,
-      age: parseInt(form.age) || 0,
+      age: calculateAge(form.dateNaissance) || 0,
       sexe: form.sexe,
       dateNaissance: form.dateNaissance,
       role: form.role,
+      photo: form.photo || null,
     };
     if (form.password) updates.password = form.password;
     updateUser(currentUser.id, updates);
@@ -83,8 +122,13 @@ export default function ProfilePage() {
               color: '#fff', fontSize: '1.8rem', fontWeight: 800,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               border: `3px solid ${levelColors[currentUser.niveau]}`,
+              overflow: 'hidden',
             }} aria-label="Avatar utilisateur">
-              {currentUser.prenom?.[0]}{currentUser.nom?.[0]}
+              {currentUser.photo ? (
+                <img src={currentUser.photo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              ) : (
+                <>{currentUser.prenom?.[0]}{currentUser.nom?.[0]}</>
+              )}
             </div>
             <div>
               <h2 style={{ fontSize: '1.25rem', fontWeight: 700 }}>{currentUser.prenom} {currentUser.nom}</h2>
@@ -113,6 +157,27 @@ export default function ProfilePage() {
             </dl>
           ) : (
             <form onSubmit={handleSave} noValidate>
+              <div className="profile-photo-editor">
+                <div className="profile-photo-preview" style={{ borderColor: levelColors[currentUser.niveau] }}>
+                  {form.photo ? (
+                    <img src={form.photo} alt="Aperçu de la photo de profil" />
+                  ) : (
+                    <span>{form.prenom?.[0]}{form.nom?.[0]}</span>
+                  )}
+                </div>
+                <div className="profile-photo-actions">
+                  <label className="btn btn-outline btn-sm" htmlFor="p-photo">
+                    <Camera size={14} aria-hidden="true" /> Choisir une photo
+                  </label>
+                  <input id="p-photo" type="file" accept="image/*" onChange={handlePhotoChange} hidden />
+                  {form.photo && (
+                    <button type="button" className="btn btn-ghost btn-sm" onClick={() => setForm(previous => ({ ...previous, photo: null }))}>
+                      <Trash2 size={14} aria-hidden="true" /> Retirer
+                    </button>
+                  )}
+                  <span className="form-hint">Image JPG/PNG/WebP, 750 Ko maximum.</span>
+                </div>
+              </div>
               <div className="grid grid-2 gap-2">
                 <div className="form-group">
                   <label className="form-label" htmlFor="p-login">Pseudonyme</label>
@@ -134,7 +199,7 @@ export default function ProfilePage() {
                 </div>
                 <div className="form-group">
                   <label className="form-label" htmlFor="p-age">Âge</label>
-                  <input id="p-age" name="age" type="number" className="form-input" value={form.age} onChange={handleChange} />
+                  <input id="p-age" name="age" type="number" className="form-input" value={form.age} readOnly />
                 </div>
                 <div className="form-group">
                   <label className="form-label" htmlFor="p-sexe">Sexe</label>
@@ -205,6 +270,10 @@ export default function ProfilePage() {
           .profile-dl > div { display: flex; flex-direction: column; }
           .profile-dl dt { font-size: .78rem; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: .04em; font-weight: 600; }
           .profile-dl dd { font-size: .95rem; font-weight: 600; }
+          .profile-photo-editor { display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap; }
+          .profile-photo-preview { width: 86px; height: 86px; border-radius: 50%; border: 3px solid; background: var(--color-primary); color: #fff; display: flex; align-items: center; justify-content: center; overflow: hidden; font-size: 1.6rem; font-weight: 800; }
+          .profile-photo-preview img { width: 100%; height: 100%; object-fit: cover; }
+          .profile-photo-actions { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; flex: 1; }
           @media(max-width:480px){ .profile-dl { grid-template-columns: 1fr; } }
         `}</style>
       </div>

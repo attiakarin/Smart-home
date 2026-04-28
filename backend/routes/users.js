@@ -11,6 +11,20 @@ function normalizeDateOnly(value) {
   return String(value).slice(0, 10);
 }
 
+function calculateAge(dateValue) {
+  if (!dateValue) return null;
+  const birthDate = new Date(dateValue);
+  if (Number.isNaN(birthDate.getTime())) return null;
+
+  const today = new Date();
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const monthDelta = today.getMonth() - birthDate.getMonth();
+  if (monthDelta < 0 || (monthDelta === 0 && today.getDate() < birthDate.getDate())) {
+    age -= 1;
+  }
+  return age >= 0 ? age : null;
+}
+
 router.get('/members', authenticate, async (req, res) => {
   try {
     const { rows } = await pool.query(
@@ -72,8 +86,9 @@ router.get('/:id', async (req, res) => {
 });
 
 router.put('/:id', async (req, res) => {
-  const { login, nom, prenom, age, genre, sexe, niveau, statut, status, points, role, rolee, photo } = req.body;
+  const { login, nom, prenom, genre, sexe, niveau, statut, status, points, role, rolee, photo } = req.body;
   const dateNaissance = normalizeDateOnly(req.body.dateNaissance ?? req.body.date_naissance);
+  const age = dateNaissance !== undefined ? calculateAge(dateNaissance) : req.body.age;
   try {
     const fields = [];
     const values = [];

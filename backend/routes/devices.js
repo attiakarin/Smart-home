@@ -87,7 +87,7 @@ router.get('/:id', authenticate, async (req, res) => {
 
 router.post('/', authenticate, requireModule('gestion'), async (req, res) => {
   const input = mapDeviceInput(req.body);
-  let { nom, type_obj, marque, piece_id, statut, type_connexion, signal_obj, batterie, energie_consommer, description } = input;
+  let { nom, type_obj, marque, piece_id, statut, type_connexion, signal_obj, batterie, energie_consommer, description, derniere_connexion } = input;
 
   if (!nom || !type_obj) return res.status(400).json({ error: 'Nom et type requis.' });
 
@@ -102,9 +102,9 @@ router.post('/', authenticate, requireModule('gestion'), async (req, res) => {
     const result = await pool.query(
       `INSERT INTO objets (
         maison_id, nom, type_obj, marque, piece_id, statut, type_connexion,
-        signal_obj, batterie, energie_consommer, description, date_creation
+        signal_obj, batterie, energie_consommer, description, derniere_connexion, date_creation
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW())
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, COALESCE($12, NOW()), NOW())
       RETURNING id`,
       [
         req.user.maisonId || null,
@@ -118,6 +118,7 @@ router.post('/', authenticate, requireModule('gestion'), async (req, res) => {
         batterie != null && batterie !== '' ? batterie : null,
         energie_consommer || 0,
         description || '',
+        derniere_connexion || null,
       ]
     );
 
@@ -138,7 +139,7 @@ router.post('/', authenticate, requireModule('gestion'), async (req, res) => {
 
 router.put('/:id', authenticate, requireModule('gestion'), async (req, res) => {
   const mapped = mapDeviceInput(req.body);
-  const allowed = ['nom', 'type_obj', 'marque', 'piece_id', 'statut', 'type_connexion', 'signal_obj', 'batterie', 'energie_consommer', 'description'];
+  const allowed = ['nom', 'type_obj', 'marque', 'piece_id', 'statut', 'type_connexion', 'signal_obj', 'batterie', 'energie_consommer', 'description', 'derniere_connexion'];
   const fields = [];
   const values = [];
 

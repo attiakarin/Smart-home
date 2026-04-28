@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Search, SlidersHorizontal, Wrench } from 'lucide-react';
+import { Search, SlidersHorizontal, Wrench, X } from 'lucide-react';
 import { publicAPI } from '../../services/api';
 
 const LEVELS = ['Tous', 'Débutant', 'Intermédiaire', 'Avancé', 'Expert'];
@@ -10,6 +10,7 @@ export default function ServicesPage() {
   const [keyword, setKeyword] = useState('');
   const [type, setType] = useState('Tous');
   const [level, setLevel] = useState('Tous');
+  const [selectedService, setSelectedService] = useState(null);
 
   useEffect(() => {
     const loadServices = async () => {
@@ -68,7 +69,14 @@ export default function ServicesPage() {
 
       <div className="grid grid-3" role="list" aria-label="Liste des services">
         {filtered.map(service => (
-          <article key={service.id} className="card" role="listitem">
+          <button
+            key={service.id}
+            type="button"
+            className="card card-clickable"
+            role="listitem"
+            onClick={() => setSelectedService(service)}
+            style={{ textAlign: 'left' }}
+          >
             <div className="flex items-center gap-2 mb-2">
               <div style={{ color: 'var(--color-primary)' }} aria-hidden="true">
                 <SlidersHorizontal size={18} />
@@ -78,7 +86,8 @@ export default function ServicesPage() {
             </div>
             <h2 style={{ fontSize: '1rem', fontWeight: 800, marginBottom: '.35rem' }}>{service.name}</h2>
             <p style={{ fontSize: '.88rem', color: 'var(--color-text-muted)', lineHeight: 1.5 }}>{service.description}</p>
-          </article>
+            <span className="form-hint">Cliquer pour voir le détail</span>
+          </button>
         ))}
 
         {!loading && filtered.length === 0 && (
@@ -94,6 +103,36 @@ export default function ServicesPage() {
           </p>
         )}
       </div>
+
+      {selectedService && (
+        <div className="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="service-detail-title">
+          <div className="modal" style={{ maxWidth: 560 }}>
+            <div className="modal-header">
+              <h2 id="service-detail-title" style={{ fontSize: '1.1rem', fontWeight: 800 }}>{selectedService.name}</h2>
+              <button className="btn btn-ghost btn-sm" onClick={() => setSelectedService(null)} aria-label="Fermer">
+                <X size={18} />
+              </button>
+            </div>
+            <div className="modal-body">
+              <div className="flex gap-2 mb-3" style={{ flexWrap: 'wrap' }}>
+                <span className="badge badge-gray">{selectedService.service_type || 'Service'}</span>
+                <span className="badge badge-primary">Niveau {selectedService.min_niveau}</span>
+                {selectedService.categorie_nom && <span className="badge badge-warning">{selectedService.categorie_nom}</span>}
+              </div>
+              <p style={{ color: 'var(--color-text-muted)', lineHeight: 1.6 }}>{selectedService.description}</p>
+              <div className="card mt-3" style={{ background: '#f8fafc' }}>
+                <h3 style={{ fontSize: '.95rem', fontWeight: 800, marginBottom: '.4rem' }}>Ce service permet</h3>
+                <p style={{ color: 'var(--color-text-muted)', fontSize: '.88rem' }}>
+                  D’explorer les fonctionnalités liées à la catégorie, puis de les utiliser avec vos objets connectés une fois votre compte validé.
+                </p>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-primary" onClick={() => setSelectedService(null)}>Compris</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

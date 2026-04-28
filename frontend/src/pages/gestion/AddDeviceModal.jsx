@@ -6,8 +6,8 @@ export default function AddDeviceModal({ onClose }) {
   const { addDevice, deviceTypes, rooms } = useDevices();
   const [form, setForm] = useState({
     name: '', type: deviceTypes[0] || '', brand: '', room: rooms[0] || '',
-    connectivity: 'Wi-Fi', description: '', energyConsumption: '',
-    status: 'active',
+    connectivity: 'Wi-Fi', signal: 'Fort', description: '', energyConsumption: '',
+    battery: '', status: 'active',
   });
   const [error, setError] = useState('');
 
@@ -66,8 +66,18 @@ export default function AddDeviceModal({ onClose }) {
                 </select>
               </div>
               <div className="form-group">
+                <label className="form-label" htmlFor="ad-signal">Signal</label>
+                <select id="ad-signal" name="signal" className="form-select" value={form.signal} onChange={handleChange}>
+                  <option>Fort</option><option>Moyen</option><option>Faible</option>
+                </select>
+              </div>
+              <div className="form-group">
                 <label className="form-label" htmlFor="ad-energy">Conso. (kWh)</label>
                 <input id="ad-energy" name="energyConsumption" type="number" step="0.01" className="form-input" value={form.energyConsumption} onChange={handleChange} />
+              </div>
+              <div className="form-group">
+                <label className="form-label" htmlFor="ad-battery">Batterie (%)</label>
+                <input id="ad-battery" name="battery" type="number" min="0" max="100" className="form-input" value={form.battery} onChange={handleChange} placeholder="Aucune batterie" />
               </div>
               <div className="form-group" style={{ gridColumn: '1/-1' }}>
                 <label className="form-label" htmlFor="ad-desc">Description</label>

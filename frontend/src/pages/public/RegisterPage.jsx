@@ -5,6 +5,17 @@ import { UserPlus, Eye, EyeOff, KeyRound } from 'lucide-react';
 
 const ROLES = ['mère', 'père', 'enfant', 'autre'];
 
+function calculateAge(dateValue) {
+  if (!dateValue) return '';
+  const birthDate = new Date(dateValue);
+  if (Number.isNaN(birthDate.getTime())) return '';
+  const today = new Date();
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const monthDelta = today.getMonth() - birthDate.getMonth();
+  if (monthDelta < 0 || (monthDelta === 0 && today.getDate() < birthDate.getDate())) age -= 1;
+  return age >= 0 ? String(age) : '';
+}
+
 export default function RegisterPage() {
   const { register, loading } = useAuth();
   const navigate = useNavigate();
@@ -18,7 +29,14 @@ export default function RegisterPage() {
   const [error, setError]   = useState('');
   const [success, setSuccess] = useState(false);
 
-  const handleChange = e => setForm(f => ({ ...f, [e.target.name]: e.target.value }));
+  const handleChange = e => {
+    const { name, value } = e.target;
+    setForm(f => ({
+      ...f,
+      [name]: value,
+      ...(name === 'dateNaissance' ? { age: calculateAge(value) } : {}),
+    }));
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -49,7 +67,7 @@ export default function RegisterPage() {
     const { confirmPassword, ...data } = form;
     const submitData = { 
       ...data, 
-      age: parseInt(data.age) || 0,
+      age: calculateAge(data.dateNaissance) || 0,
       sexe: genreMap[data.sexe] || '-'
     };
     
@@ -125,7 +143,7 @@ export default function RegisterPage() {
               <div className="form-group">
                 <label className="form-label" htmlFor="reg-age">Âge</label>
                 <input id="reg-age" name="age" type="number" className="form-input" min="1" max="120"
-                  value={form.age} onChange={handleChange} />
+                  value={form.age} readOnly />
               </div>
               <div className="form-group">
                 <label className="form-label" htmlFor="reg-sexe">Sexe / Genre</label>

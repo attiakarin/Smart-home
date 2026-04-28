@@ -84,8 +84,12 @@ export default function Navbar() {
                 aria-expanded={dropOpen}
                 aria-haspopup="menu"
               >
-                <div className="user-avatar" style={{ borderColor: LEVEL_COLORS[currentUser.niveau] }}>
-                  {currentUser.prenom?.[0]}{currentUser.nom?.[0]}
+                <div className="user-avatar" style={{ borderColor: LEVEL_COLORS[currentUser.niveau], overflow: 'hidden' }}>
+                  {currentUser.photo ? (
+                    <img src={currentUser.photo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : (
+                    <>{currentUser.prenom?.[0]}{currentUser.nom?.[0]}</>
+                  )}
                 </div>
                 <span className="user-name">{currentUser.login}</span>
                 {pendingRequests > 0 && <span className="user-notification" aria-label={`${pendingRequests} demande(s) en attente`}>{pendingRequests}</span>}

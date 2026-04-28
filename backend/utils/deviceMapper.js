@@ -26,6 +26,7 @@ export function mapDevice(device) {
     energyConsumption: Number(device.energie_consommer || 0),
     description: device.description || '',
     lastConnection: device.derniere_connexion,
+    lastSeen: device.derniere_connexion,
     createdAt: device.date_creation,
   };
 }
@@ -42,5 +43,6 @@ export function mapDeviceInput(body) {
     batterie: body.battery ?? body.batterie,
     energie_consommer: body.energyConsumption ?? body.energie_consommer,
     description: body.description,
+    derniere_connexion: body.lastConnection ?? body.lastSeen ?? body.derniere_connexion,
   };
 }

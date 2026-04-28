@@ -30,7 +30,7 @@ Le sujet demande quatre grands modules :
 
 ### Objets connectes
 
-- Les objets sont lus depuis la base MySQL.
+- Les objets sont lus depuis la base Supabase/PostgreSQL.
 - Les objets sont rattaches a une maison avec `maison_id`.
 - La page `/objets` permet de filtrer par mot-cle, type, piece et etat.
 - La page detail permet de consulter l'etat d'un objet.
@@ -61,8 +61,8 @@ Le sujet demande quatre grands modules :
 ### Prerequis
 
 - Node.js
-- MySQL
-- Une base nommee `smart_home_db` ou les variables `.env` adaptees.
+- Un projet Supabase avec une base PostgreSQL.
+- Un fichier `backend/.env` base sur `backend/.env.example`.
 
 ### Installation
 
@@ -77,10 +77,10 @@ npm install
 Le script principal est :
 
 ```bash
-backend/database/table.sql
+SQL Editor de Supabase
 ```
 
-Il cree les tables principales et insere des donnees de test.
+Il cree les tables principales dans Supabase/PostgreSQL et insere des donnees de test.
 
 ### Lancement frontend + backend
 
@@ -156,7 +156,7 @@ Le script lance :
 ### Backend `backend/`
 
 - `backend/server.js` : cree le serveur Express, configure CORS, JSON et routes API.
-- `backend/config/db.js` : connexion MySQL, migrations legeres et insertion d'objets de test.
+- `backend/config/db.js` : connexion Supabase/PostgreSQL via `DATABASE_URL`.
 - `backend/config/mailer.js` : configuration d'envoi email.
 - `backend/middleware/auth.js` : authentification JWT et controle des modules.
 - `backend/utils/userMapper.js` : conversion entre format SQL utilisateur et format frontend.
@@ -165,8 +165,7 @@ Le script lance :
 - `backend/routes/users.js` : membres de la maison et administration des utilisateurs.
 - `backend/routes/devices.js` : CRUD objets, etats, configurations et historique.
 - `backend/routes/public.js` : categories, pieces et services publics.
-- `backend/database/table.sql` : schema SQL complet.
-- `backend/database/add_role_maison.sql` : migration pour ajouter le role dans la maison.
+- Le schema PostgreSQL est gere directement dans Supabase.
 
 ## 5. Tables SQL principales
 
