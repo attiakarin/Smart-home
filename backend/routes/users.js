@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import bcrypt from 'bcryptjs';
 import pool from '../config/db.js';
 import { authenticate, requireModule } from '../middleware/auth.js';
 import { LEVEL_TO_DB, mapUser, STATUS_TO_DB } from '../utils/userMapper.js';
@@ -23,6 +24,41 @@ function calculateAge(dateValue) {
     age -= 1;
   }
   return age >= 0 ? age : null;
+}
+
+function isFutureDate(dateValue) {
+  if (!dateValue) return false;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const date = new Date(dateValue);
+  if (Number.isNaN(date.getTime())) return true;
+  date.setHours(0, 0, 0, 0);
+  return date > today;
+}
+
+function toDbLevel(value = 'Débutant') {
+  const normalized = value
+    .toString()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+  const levels = {
+    debutant: 'D\u00e9butant',
+    intermediaire: 'Interm\u00e9diaire',
+    avance: 'Avanc\u00e9',
+    expert: 'Expert',
+  };
+  return levels[normalized] || 'D\u00e9butant';
+}
+
+function toDbStatus(value = 'approved') {
+  const statuses = {
+    pending: 'Attente',
+    approved: 'Approuv\u00e9',
+    rejected: 'Refus\u00e9',
+    Attente: 'Attente',
+  };
+  return statuses[value] || 'Approuv\u00e9';
 }
 
 router.get('/members', authenticate, async (req, res) => {
@@ -66,6 +102,88 @@ router.get('/', async (req, res) => {
   }
 });
 
+router.post('/', async (req, res) => {
+  const {
+    login,
+    email,
+    password,
+    nom,
+    prenom,
+    genre,
+    sexe,
+    niveau = 'Débutant',
+    points = 0,
+    role = 'autre',
+    rolee = 'habitant',
+    status = 'approved',
+    statut,
+    photo = null,
+  } = req.body;
+  const dateNaissance = normalizeDateOnly(req.body.dateNaissance ?? req.body.date_naissance);
+
+  if (!login || !email || !password || !nom || !prenom) {
+    return res.status(400).json({ error: 'Pseudonyme, email, mot de passe, nom et prénom sont obligatoires.' });
+  }
+  if (password.length < 8) {
+    return res.status(400).json({ error: 'Le mot de passe doit contenir au moins 8 caractères.' });
+  }
+  if (isFutureDate(dateNaissance)) {
+    return res.status(400).json({ error: 'La date de naissance ne peut pas être dans le futur.' });
+  }
+
+  const finalRolee = rolee === 'admin' ? 'admin' : 'habitant';
+  const finalNiveau = finalRolee === 'admin' ? 'Expert' : niveau;
+  const finalPoints = finalRolee === 'admin' ? Math.max(Number(points || 0), 30) : Number(points || 0);
+  const nextStatut = toDbStatus(statut ?? status);
+  const age = calculateAge(dateNaissance);
+
+  try {
+    const passwordHash = await bcrypt.hash(password, 12);
+    const { rows } = await pool.query(
+      `INSERT INTO users (
+        pseudonyme, mot_de_passe, email, nom, prenom, age, genre, date_naissance,
+        rolee, role_maison, maison_id, niveau, points, photo, statut, connexions, actions
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, 0, 0)
+      RETURNING id`,
+      [
+        login,
+        passwordHash,
+        email,
+        nom,
+        prenom,
+        age,
+        genre ?? sexe ?? '-',
+        dateNaissance,
+        finalRolee,
+        role || 'autre',
+        req.user.maisonId || null,
+        toDbLevel(finalNiveau),
+        finalPoints,
+        photo,
+        nextStatut,
+      ]
+    );
+
+    const created = await pool.query(
+      `SELECT users.id, pseudonyme, email, users.nom, prenom, age, genre, date_naissance, rolee, role_maison, maison_id,
+              niveau, points, photo, statut, connexions, actions, derniere_connexion,
+              maisons.nom AS maison_nom, maisons.code_acces
+       FROM users
+       LEFT JOIN maisons ON maisons.id = users.maison_id
+       WHERE users.id = $1`,
+      [rows[0].id]
+    );
+    res.status(201).json(mapUser(created.rows[0]));
+  } catch (err) {
+    if (err.code === '23505') {
+      return res.status(409).json({ error: 'Ce pseudonyme ou cet email existe déjà.' });
+    }
+    console.error(err);
+    res.status(500).json({ error: 'Erreur serveur.' });
+  }
+});
+
 router.get('/:id', async (req, res) => {
   try {
     const { rows } = await pool.query(
@@ -88,6 +206,9 @@ router.get('/:id', async (req, res) => {
 router.put('/:id', async (req, res) => {
   const { login, nom, prenom, genre, sexe, niveau, statut, status, points, role, rolee, photo } = req.body;
   const dateNaissance = normalizeDateOnly(req.body.dateNaissance ?? req.body.date_naissance);
+  if (isFutureDate(dateNaissance)) {
+    return res.status(400).json({ error: 'La date de naissance ne peut pas etre dans le futur.' });
+  }
   const age = dateNaissance !== undefined ? calculateAge(dateNaissance) : req.body.age;
   try {
     const fields = [];

@@ -20,6 +20,9 @@ export default function DashboardPage() {
   const { devices } = useDevices();
 
   const isAdmin = currentUser.appRole === 'admin';
+  const canUseGestion = canAccess('gestion');
+  const canCreateDevices = canAccess('device_create');
+  const canSeeReports = canAccess('reports');
   const levelKey = currentUser.niveau?.toLowerCase();
   const pendingUsers = users.filter(user => user.status === 'pending');
   const active = devices.filter(device => device.status === 'active').length;
@@ -95,7 +98,7 @@ export default function DashboardPage() {
         <div className="level-progress" aria-label={`Progression : ${progress}%`}>
           <div className="level-progress__bar" style={{ width: `${progress}%`, background: LEVEL_COLORS[levelKey] || '#6b7280' }} />
         </div>
-        {canAccess('gestion') && (
+        {canUseGestion && (
           <Link to="/gestion" className="btn btn-primary btn-sm mt-2" style={{ alignSelf: 'flex-start' }}>
             <BarChart2 size={15} /> Accéder à la gestion
           </Link>
@@ -117,12 +120,8 @@ export default function DashboardPage() {
         <QuickLink to="/membres" icon={<User size={20} />} title="Membres" desc="Voir les membres de la maison" />
         <QuickLink to="/profil" icon={<TrendingUp size={20} />} title="Mon profil" desc="Gérer votre profil et vos points" />
         {isAdmin && <QuickLink to="/admin" icon={<Bell size={20} />} title="Demandes d'accès" desc="Valider ou refuser les habitants" />}
-        {canAccess('gestion') && (
-          <>
-            <QuickLink to="/gestion" icon={<Plus size={20} />} title="Ajouter un objet" desc="Créer et enregistrer un objet connecté" />
-            <QuickLink to="/gestion/rapports" icon={<BarChart2 size={20} />} title="Rapports" desc="Statistiques et rapports de la maison" />
-          </>
-        )}
+        {canUseGestion && <QuickLink to="/gestion" icon={<Plus size={20} />} title={canCreateDevices ? 'Ajouter un objet' : 'Piloter les objets'} desc={canCreateDevices ? 'Créer et enregistrer un objet connecté' : 'Activer ou désactiver les objets existants'} />}
+        {canSeeReports && <QuickLink to="/gestion/rapports" icon={<BarChart2 size={20} />} title="Rapports" desc="Statistiques et rapports de la maison" />}
       </div>
 
       <h2 className="section-title" style={{ fontSize: '1.2rem' }}>Objets actifs récents</h2>

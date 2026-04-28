@@ -47,6 +47,21 @@ function calculateAge(dateValue) {
   return age >= 0 ? age : null;
 }
 
+function isFutureDate(dateValue) {
+  if (!dateValue) return false;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const date = new Date(dateValue);
+  if (Number.isNaN(date.getTime())) return true;
+  date.setHours(0, 0, 0, 0);
+  return date > today;
+}
+
+function isAdult(dateValue) {
+  const age = calculateAge(dateValue);
+  return age !== null && age >= 18;
+}
+
 router.post('/login',
   body('login').notEmpty().trim(),
   body('password').notEmpty(),
@@ -122,6 +137,12 @@ router.post('/register',
     const { login, password, email, nom, prenom, sexe, role, accessCode } = req.body;
     const dateNaissance = normalizeDateOnly(req.body.dateNaissance ?? req.body.date_naissance);
     const age = calculateAge(dateNaissance);
+    if (isFutureDate(dateNaissance)) {
+      return res.status(400).json({ error: 'La date de naissance ne peut pas etre dans le futur.' });
+    }
+    if (!isAdult(dateNaissance)) {
+      return res.status(400).json({ error: 'Vous devez avoir au moins 18 ans pour vous inscrire.' });
+    }
 
     try {
       const existing = await pool.query(
@@ -202,10 +223,16 @@ router.post('/create-house',
     const { houseName, login, password, email, nom, prenom, sexe } = req.body;
     const dateNaissance = normalizeDateOnly(req.body.dateNaissance ?? req.body.date_naissance);
     const age = calculateAge(dateNaissance);
+    if (isFutureDate(dateNaissance)) {
+      return res.status(400).json({ error: 'La date de naissance ne peut pas etre dans le futur.' });
+    }
+    if (!isAdult(dateNaissance)) {
+      return res.status(400).json({ error: 'Vous devez avoir au moins 18 ans pour creer une maison.' });
+    }
     const client = await pool.connect();
 
     try {
-      const settings = await getAppSettings(req.user.maisonId);
+      const settings = await getAppSettings();
       if (settings.maintenanceMode) {
         return res.status(503).json({ error: 'La creation de maison est fermee pendant la maintenance.' });
       }
@@ -283,6 +310,9 @@ router.get('/me', authenticate, async (req, res) => {
 router.put('/profile', authenticate, async (req, res) => {
   const { nom, prenom, genre, role, rolee, photo, password } = req.body;
   const dateNaissance = normalizeDateOnly(req.body.dateNaissance ?? req.body.date_naissance);
+  if (isFutureDate(dateNaissance)) {
+    return res.status(400).json({ error: 'La date de naissance ne peut pas etre dans le futur.' });
+  }
   const age = dateNaissance !== undefined ? calculateAge(dateNaissance) : req.body.age;
 
   try {

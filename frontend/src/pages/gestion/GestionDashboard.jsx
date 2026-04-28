@@ -7,9 +7,14 @@ import AddDeviceModal from './AddDeviceModal';
 
 export default function GestionDashboard() {
   const { devices, toggleDevice, deleteDevice } = useDevices();
-  const { currentUser } = useAuth();
+  const { canAccess } = useAuth();
   const [showAdd, setShowAdd] = useState(false);
   const [deletePending, setDeletePending] = useState(null);
+  const canToggle = canAccess('device_toggle');
+  const canCreate = canAccess('device_create');
+  const canConfigure = canAccess('device_config');
+  const canSeeReports = canAccess('reports');
+  const canDelete = canAccess('device_delete');
 
   const active   = devices.filter(d => d.status === 'active').length;
   const totalE   = devices.reduce((s, d) => s + (d.energyConsumption > 0 ? d.energyConsumption : 0), 0).toFixed(1);
@@ -33,14 +38,24 @@ export default function GestionDashboard() {
           <p style={{ color: 'var(--color-text-muted)' }}>Tableau de bord avancé — gestion des objets connectés</p>
         </div>
         <div className="flex gap-2">
-          <button className="btn btn-primary" onClick={() => setShowAdd(true)}>
-            <Plus size={16} /> Ajouter un objet
-          </button>
-          <Link to="/gestion/rapports" className="btn btn-outline">
-            <BarChart2 size={16} /> Rapports
-          </Link>
+          {canCreate && (
+            <button className="btn btn-primary" onClick={() => setShowAdd(true)}>
+              <Plus size={16} /> Ajouter un objet
+            </button>
+          )}
+          {canSeeReports && (
+            <Link to="/gestion/rapports" className="btn btn-outline">
+              <BarChart2 size={16} /> Rapports
+            </Link>
+          )}
         </div>
       </div>
+
+      {!canCreate && (
+        <div className="alert alert-info mb-4" role="status">
+          Votre niveau permet de piloter les objets existants. La création, la configuration avancée et les rapports se débloquent au niveau Avancé.
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid grid-4 mb-4">
@@ -106,17 +121,21 @@ export default function GestionDashboard() {
                 </td>
                 <td>
                   <div className="flex gap-1">
-                    <Link to={`/gestion/objet/${d.id}`} className="btn btn-outline btn-sm" aria-label={`Configurer ${d.name}`}>
-                      <Settings size={13} /> Configurer
-                    </Link>
-                    <button
-                      className="btn btn-ghost btn-sm"
-                      onClick={() => toggleDevice(d.id)}
-                      aria-label={d.status === 'active' ? `Désactiver ${d.name}` : `Activer ${d.name}`}
-                    >
-                      {d.status === 'active' ? 'Désactiver' : 'Activer'}
-                    </button>
-                    {(currentUser.appRole === 'admin') && (
+                    {canConfigure && (
+                      <Link to={`/gestion/objet/${d.id}`} className="btn btn-outline btn-sm" aria-label={`Configurer ${d.name}`}>
+                        <Settings size={13} /> Configurer
+                      </Link>
+                    )}
+                    {canToggle && (
+                      <button
+                        className="btn btn-ghost btn-sm"
+                        onClick={() => toggleDevice(d.id)}
+                        aria-label={d.status === 'active' ? `Désactiver ${d.name}` : `Activer ${d.name}`}
+                      >
+                        {d.status === 'active' ? 'Désactiver' : 'Activer'}
+                      </button>
+                    )}
+                    {canDelete && (
                       <button
                         className="btn btn-danger btn-sm"
                         onClick={() => handleDeleteRequest(d)}
@@ -134,7 +153,7 @@ export default function GestionDashboard() {
       </div>
 
       {/* Add modal */}
-      {showAdd && <AddDeviceModal onClose={() => setShowAdd(false)} />}
+      {showAdd && canCreate && <AddDeviceModal onClose={() => setShowAdd(false)} />}
 
       {/* Delete confirmation */}
       {deletePending && (

@@ -8,6 +8,20 @@ function normalizeLevel(niveau = '') {
     .toLowerCase();
 }
 
+function levelRank(niveau = '') {
+  const ranks = {
+    debutant: 1,
+    intermediaire: 2,
+    avance: 3,
+    expert: 4,
+  };
+  return ranks[normalizeLevel(niveau)] || 0;
+}
+
+function hasMinLevel(niveau, minLevel) {
+  return levelRank(niveau) >= levelRank(minLevel);
+}
+
 export function authenticate(req, res, next) {
   const authHeader = req.headers.authorization;
   const token = authHeader && authHeader.split(' ')[1];
@@ -26,16 +40,24 @@ export function authenticate(req, res, next) {
 
 export function requireModule(module) {
   return (req, res, next) => {
-    const niveau = normalizeLevel(req.user?.niveau);
+    const niveau = req.user?.niveau;
+    const isAdmin = normalizeLevel(niveau) === 'expert' && req.user?.rolee === 'admin';
     const allowed = {
       information: true,
       visualisation: true,
-      gestion: niveau === 'avance' || niveau === 'expert',
-      administration: niveau === 'expert' && req.user?.rolee === 'admin',
+      gestion: hasMinLevel(niveau, 'intermediaire'),
+      device_toggle: hasMinLevel(niveau, 'intermediaire'),
+      device_create: hasMinLevel(niveau, 'avance'),
+      device_config: hasMinLevel(niveau, 'avance'),
+      reports: hasMinLevel(niveau, 'avance'),
+      device_delete: isAdmin,
+      administration: isAdmin,
+      users_manage: isAdmin,
+      settings_manage: isAdmin,
     };
 
     if (!allowed[module]) {
-      return res.status(403).json({ error: 'Acces refuse pour ce module.' });
+      return res.status(403).json({ error: 'Accès refusé pour ce module.' });
     }
 
     next();

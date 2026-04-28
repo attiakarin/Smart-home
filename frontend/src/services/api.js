@@ -202,6 +202,15 @@ export const usersAPI = {
     return handleResponse(response);
   },
 
+  create: async (userData) => {
+    const response = await fetch(`${API_BASE_URL}/users`, {
+      method: 'POST',
+      headers: getHeaders(true),
+      body: JSON.stringify(userData),
+    });
+    return handleResponse(response);
+  },
+
   // Met à jour un utilisateur
   update: async (id, userData) => {
     const response = await fetch(`${API_BASE_URL}/users/${id}`, {

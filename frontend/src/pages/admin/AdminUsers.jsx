@@ -12,13 +12,26 @@ export default function AdminUsers() {
     { value: 'habitant', label: 'Habitant' },
     { value: 'admin', label: 'Administrateur' },
   ];
-  const { users, currentUser, updateUser, deleteUser, register } = useAuth();
+  const { users, updateUser, deleteUser, createUser } = useAuth();
   const [filter, setFilter]     = useState('all');
   const [editId, setEditId]     = useState(null);
   const [editForm, setEditForm] = useState({});
   const [deleteId, setDeleteId] = useState(null);
   const [showAdd, setShowAdd]   = useState(false);
-  const [addForm, setAddForm]   = useState({ login:'', prenom:'', nom:'', email:'', password:'', role:'père', niveau:'Débutant' });
+  const initialAddForm = {
+    login: '',
+    prenom: '',
+    nom: '',
+    email: '',
+    password: '',
+    role: 'enfant',
+    sexe: '-',
+    dateNaissance: '',
+    niveau: 'Débutant',
+    rolee: 'habitant',
+    points: 0,
+  };
+  const [addForm, setAddForm]   = useState(initialAddForm);
   const [addError, setAddError] = useState('');
   const [saved, setSaved]       = useState('');
 
@@ -66,19 +79,28 @@ export default function AdminUsers() {
   const handleAdd = async (e) => {
     e.preventDefault();
     setAddError('');
-    if (!addForm.login || !addForm.email || !addForm.password) { setAddError('Champs obligatoires manquants.'); return; }
-    const res = await register(
-      { ...addForm, accessCode: currentUser?.maisonCode || 'MAISON2026', age: 0, sexe: 'Homme', dateNaissance: '', photo: null },
-      { persistSession: false }
-    );
-    if (!res.success) { setAddError(res.error); return; }
-    if (res.id) {
-      await updateUser(res.id, { status: 'approved', niveau: addForm.niveau, rolee: 'habitant', points: levelPoints[addForm.niveau] });
+    if (!addForm.login || !addForm.email || !addForm.password || !addForm.nom || !addForm.prenom) {
+      setAddError('Pseudonyme, prénom, nom, email et mot de passe sont obligatoires.');
+      return;
     }
-    setShowAdd(false);
-    setAddForm({ login:'', prenom:'', nom:'', email:'', password:'', role:'père', niveau:'Débutant' });
-    setSaved('Utilisateur créé et approuvé !');
-    setTimeout(() => setSaved(''), 2500);
+    try {
+      const rolee = addForm.rolee;
+      const niveau = rolee === 'admin' ? 'Expert' : addForm.niveau;
+      await createUser({
+        ...addForm,
+        rolee,
+        niveau,
+        points: rolee === 'admin' ? levelPoints.Expert : (Number(addForm.points) || levelPoints[niveau] || 0),
+        status: 'approved',
+        photo: null,
+      });
+      setShowAdd(false);
+      setAddForm(initialAddForm);
+      setSaved('Utilisateur créé et approuvé !');
+      setTimeout(() => setSaved(''), 2500);
+    } catch (err) {
+      setAddError(err.message || 'Impossible de créer cet utilisateur.');
+    }
   };
 
   return (
@@ -107,10 +129,42 @@ export default function AdminUsers() {
                 </div>
               ))}
               <div className="form-group">
+                <label className="form-label" htmlFor="au-role">Rôle dans la maison</label>
+                <select id="au-role" className="form-select" value={addForm.role} onChange={e => setAddForm(p => ({ ...p, role: e.target.value }))}>
+                  <option value="enfant">Enfant</option>
+                  <option value="mère">Mère</option>
+                  <option value="père">Père</option>
+                  <option value="autre">Autre</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label className="form-label" htmlFor="au-sexe">Genre</label>
+                <select id="au-sexe" className="form-select" value={addForm.sexe} onChange={e => setAddForm(p => ({ ...p, sexe: e.target.value }))}>
+                  <option value="-">Non précisé</option>
+                  <option value="F">Femme</option>
+                  <option value="H">Homme</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label className="form-label" htmlFor="au-date-naissance">Date de naissance</label>
+                <input id="au-date-naissance" type="date" className="form-input" value={addForm.dateNaissance} max={new Date().toISOString().slice(0, 10)} onChange={e => setAddForm(p => ({ ...p, dateNaissance: e.target.value }))} />
+                <span className="form-hint">Un administrateur peut ajouter un enfant de sa maison.</span>
+              </div>
+              <div className="form-group">
+                <label className="form-label" htmlFor="au-droits">Droits</label>
+                <select id="au-droits" className="form-select" value={addForm.rolee} onChange={e => setAddForm(p => ({ ...p, rolee: e.target.value, niveau: e.target.value === 'admin' ? 'Expert' : p.niveau }))}>
+                  {appRoles.map(role => <option key={role.value} value={role.value}>{role.label}</option>)}
+                </select>
+              </div>
+              <div className="form-group">
                 <label className="form-label" htmlFor="au-niveau">Niveau</label>
-                <select id="au-niveau" className="form-select" value={addForm.niveau} onChange={e => setAddForm(p => ({ ...p, niveau: e.target.value }))}>
+                <select id="au-niveau" className="form-select" value={addForm.niveau} onChange={e => setAddForm(p => ({ ...p, niveau: e.target.value, points: levelPoints[e.target.value] || 0 }))} disabled={addForm.rolee === 'admin'}>
                   {levelOptions.map(l => <option key={l}>{l}</option>)}
                 </select>
+              </div>
+              <div className="form-group">
+                <label className="form-label" htmlFor="au-points">Points</label>
+                <input id="au-points" type="number" step="0.25" min="0" className="form-input" value={addForm.rolee === 'admin' ? levelPoints.Expert : addForm.points} onChange={e => setAddForm(p => ({ ...p, points: e.target.value }))} disabled={addForm.rolee === 'admin'} />
               </div>
             </div>
             <div className="flex gap-2 mt-3">

@@ -335,7 +335,7 @@ function ConnectedHome({ currentUser, users, devices, canAccess }) {
               <QuickAction to="/objets" icon={<Cpu size={18} />} title="Objets connectés" desc="Consulter les équipements et leurs états." />
               <QuickAction to="/profil" icon={<User size={18} />} title="Profil" desc="Gérer vos informations et votre niveau." />
               <QuickAction to="/services" icon={<Wrench size={18} />} title="Services" desc="Rechercher les services de la maison." />
-              {canAccess('gestion') && <QuickAction to="/gestion" icon={<Settings size={18} />} title="Gestion" desc="Ajouter ou configurer des objets." />}
+              {canAccess('gestion') && <QuickAction to="/gestion" icon={<Settings size={18} />} title="Gestion" desc={canAccess('device_create') ? 'Ajouter ou configurer des objets.' : 'Activer ou désactiver les objets.'} />}
               {isAdmin && <QuickAction to="/admin" icon={<Shield size={18} />} title="Administration" desc="Valider les accès et gérer les membres." />}
             </div>
           </div>

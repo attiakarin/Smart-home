@@ -2,17 +2,11 @@ import { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { User, Edit3, Save, X, Eye, EyeOff, Camera, Trash2 } from 'lucide-react';
 import { LEVELS, LEVEL_COLORS } from '../../constants/smartHome';
-
-function calculateAge(dateValue) {
-  if (!dateValue) return '';
-  const birthDate = new Date(dateValue);
-  if (Number.isNaN(birthDate.getTime())) return '';
-  const today = new Date();
-  let age = today.getFullYear() - birthDate.getFullYear();
-  const monthDelta = today.getMonth() - birthDate.getMonth();
-  if (monthDelta < 0 || (monthDelta === 0 && today.getDate() < birthDate.getDate())) age -= 1;
-  return age >= 0 ? String(age) : '';
+function getTodayDateInput() {
+  return new Date().toISOString().slice(0, 10);
 }
+
+
 
 export default function ProfilePage() {
   const { currentUser, updateUser, computeLevel, users } = useAuth();
@@ -21,8 +15,7 @@ export default function ProfilePage() {
   const [form, setForm] = useState({
     login: currentUser.login,
     prenom: currentUser.prenom,
-    nom: currentUser.nom,
-    age: currentUser.age,
+    nom: currentUser.nom,
     sexe: currentUser.sexe,
     dateNaissance: currentUser.dateNaissance,
     role: currentUser.role,
@@ -31,6 +24,7 @@ export default function ProfilePage() {
   });
   const [success, setSuccess] = useState('');
   const [error, setError]   = useState('');
+  const maxBirthDate = getTodayDateInput();
 
   const levelColors = LEVEL_COLORS;
   const nextLevels  = { débutant: 'Intermédiaire', intermédiaire: 'Avancé', avancé: 'Expert', expert: null };
@@ -42,8 +36,7 @@ export default function ProfilePage() {
     const { name, value } = e.target;
     setForm(f => ({
       ...f,
-      [name]: value,
-      ...(name === 'dateNaissance' ? { age: calculateAge(value) } : {}),
+      [name]: value,
     }));
   };
 
@@ -81,8 +74,7 @@ export default function ProfilePage() {
     const updates = {
       login: form.login,
       prenom: form.prenom,
-      nom: form.nom,
-      age: calculateAge(form.dateNaissance) || 0,
+      nom: form.nom,
       sexe: form.sexe,
       dateNaissance: form.dateNaissance,
       role: form.role,
@@ -198,10 +190,6 @@ export default function ProfilePage() {
                   <input id="p-nom" name="nom" className="form-input" value={form.nom} onChange={handleChange} />
                 </div>
                 <div className="form-group">
-                  <label className="form-label" htmlFor="p-age">Âge</label>
-                  <input id="p-age" name="age" type="number" className="form-input" value={form.age} readOnly />
-                </div>
-                <div className="form-group">
                   <label className="form-label" htmlFor="p-sexe">Sexe</label>
                   <select id="p-sexe" name="sexe" className="form-select" value={form.sexe} onChange={handleChange}>
                     <option>Homme</option><option>Femme</option><option>Non-binaire</option><option>Préfère ne pas préciser</option>
@@ -209,7 +197,7 @@ export default function ProfilePage() {
                 </div>
                 <div className="form-group">
                   <label className="form-label" htmlFor="p-dob">Date de naissance</label>
-                  <input id="p-dob" name="dateNaissance" type="date" className="form-input" value={form.dateNaissance} onChange={handleChange} />
+                  <input id="p-dob" name="dateNaissance" type="date" className="form-input" value={form.dateNaissance} onChange={handleChange} max={maxBirthDate} />
                 </div>
                 <div className="form-group" style={{ position: 'relative' }}>
                   <label className="form-label" htmlFor="p-pw">Nouveau mot de passe</label>

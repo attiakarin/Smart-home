@@ -33,6 +33,28 @@ function isAdminUser(user) {
   return user?.niveau === 'Expert' && user?.appRole === 'admin';
 }
 
+function normalizeLevelName(level = '') {
+  return level
+    .toString()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+}
+
+function levelRank(level = '') {
+  const ranks = {
+    debutant: 1,
+    intermediaire: 2,
+    avance: 3,
+    expert: 4,
+  };
+  return ranks[normalizeLevelName(level)] || 0;
+}
+
+function hasMinLevel(user, minLevel) {
+  return levelRank(user?.niveau) >= levelRank(minLevel);
+}
+
 function applyThemeColor(color) {
   if (!/^#[0-9a-f]{6}$/i.test(color || '')) return;
   const root = document.documentElement;
@@ -216,6 +238,12 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
+  const createUser = useCallback(async (data) => {
+    const created = normalizeUser(await usersAPI.create(data));
+    setUsers(prev => [...prev, created]);
+    return created;
+  }, []);
+
   const updateSettings = useCallback(async (data) => {
     const nextSettings = await settingsAPI.update(data);
     setSettings({ ...DEFAULT_SETTINGS, ...nextSettings });
@@ -253,12 +281,19 @@ export function AuthProvider({ children }) {
   // Access control helpers
   const canAccess = useCallback((module) => {
     if (!currentUser) return module === 'information';
-    const nv = currentUser.niveau;
+    const isAdmin = currentUser.appRole === 'admin' && normalizeLevelName(currentUser.niveau) === 'expert';
     switch (module) {
       case 'information':    return true;
       case 'visualisation':  return true;
-      case 'gestion':        return nv === 'Avancé' || nv === 'Expert';
-      case 'administration': return nv === 'Expert' && currentUser.appRole === 'admin';
+      case 'gestion':        return hasMinLevel(currentUser, 'intermediaire');
+      case 'device_toggle':  return hasMinLevel(currentUser, 'intermediaire');
+      case 'device_create':  return hasMinLevel(currentUser, 'avance');
+      case 'device_config':  return hasMinLevel(currentUser, 'avance');
+      case 'reports':        return hasMinLevel(currentUser, 'avance');
+      case 'device_delete':  return isAdmin;
+      case 'administration': return isAdmin;
+      case 'users_manage':   return isAdmin;
+      case 'settings_manage': return isAdmin;
       default: return false;
     }
   }, [currentUser]);
@@ -270,7 +305,7 @@ export function AuthProvider({ children }) {
       devices, setDevices,
       login, logout, register,
       createHouse,
-      updateUser, deleteUser,
+      updateUser, deleteUser, createUser,
       settings, updateSettings,
       deleteCurrentAccount,
       logAction,

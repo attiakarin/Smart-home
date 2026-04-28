@@ -2,17 +2,29 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Home, KeyRound, ShieldCheck, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+function formatDateInput(date) {
+  return date.toISOString().slice(0, 10);
+}
+
+function getAdultMaxBirthDate() {
+  const date = new Date();
+  date.setFullYear(date.getFullYear() - 18);
+  return formatDateInput(date);
+}
+
 
 function calculateAge(dateValue) {
-  if (!dateValue) return '';
+  if (!dateValue) return null;
   const birthDate = new Date(dateValue);
-  if (Number.isNaN(birthDate.getTime())) return '';
+  if (Number.isNaN(birthDate.getTime())) return null;
   const today = new Date();
   let age = today.getFullYear() - birthDate.getFullYear();
   const monthDelta = today.getMonth() - birthDate.getMonth();
   if (monthDelta < 0 || (monthDelta === 0 && today.getDate() < birthDate.getDate())) age -= 1;
-  return age >= 0 ? String(age) : '';
+  return age >= 0 ? age : null;
 }
+
+
 
 export default function CreateHousePage() {
   const { createHouse, loading } = useAuth();
@@ -23,21 +35,20 @@ export default function CreateHousePage() {
     confirmPassword: '',
     nom: '',
     prenom: '',
-    email: '',
-    age: '',
+    email: '',
     sexe: 'Homme',
     dateNaissance: '',
   });
   const [showPw, setShowPw] = useState(false);
   const [error, setError] = useState('');
   const [created, setCreated] = useState(null);
+  const maxBirthDate = getAdultMaxBirthDate();
 
   const handleChange = (event) => {
     const { name, value } = event.target;
     setForm(previous => ({
       ...previous,
-      [name]: value,
-      ...(name === 'dateNaissance' ? { age: calculateAge(value) } : {}),
+      [name]: value,
     }));
   };
 
@@ -58,11 +69,15 @@ export default function CreateHousePage() {
       return;
     }
 
+    if (calculateAge(form.dateNaissance) < 18) {
+      setError('Vous devez avoir au moins 18 ans pour créer une maison.');
+      return;
+    }
+
     const genreMap = { Homme: 'H', Femme: 'F', 'Non-binaire': '-', 'Préfère ne pas préciser': '-' };
     const { confirmPassword, ...data } = form;
     const result = await createHouse({
-      ...data,
-      age: calculateAge(data.dateNaissance) || null,
+      ...data,
       sexe: genreMap[data.sexe] || '-',
     });
 
@@ -126,10 +141,6 @@ export default function CreateHousePage() {
                 <input id="house-email" name="email" type="email" className="form-input" value={form.email} onChange={handleChange} required />
               </div>
               <div className="form-group">
-                <label className="form-label" htmlFor="house-age">Âge</label>
-                <input id="house-age" name="age" type="number" min="1" max="120" className="form-input" value={form.age} readOnly />
-              </div>
-              <div className="form-group">
                 <label className="form-label" htmlFor="house-sexe">Sexe / Genre</label>
                 <select id="house-sexe" name="sexe" className="form-select" value={form.sexe} onChange={handleChange}>
                   <option>Homme</option><option>Femme</option><option>Non-binaire</option><option>Préfère ne pas préciser</option>
@@ -137,7 +148,7 @@ export default function CreateHousePage() {
               </div>
               <div className="form-group">
                 <label className="form-label" htmlFor="house-dob">Date de naissance</label>
-                <input id="house-dob" name="dateNaissance" type="date" className="form-input" value={form.dateNaissance} onChange={handleChange} />
+                <input id="house-dob" name="dateNaissance" type="date" className="form-input" value={form.dateNaissance} onChange={handleChange} max={maxBirthDate} />
               </div>
               <div className="form-group" style={{ position: 'relative' }}>
                 <label className="form-label" htmlFor="house-password">Mot de passe *</label>

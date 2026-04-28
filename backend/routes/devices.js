@@ -85,7 +85,7 @@ router.get('/:id', authenticate, async (req, res) => {
   }
 });
 
-router.post('/', authenticate, requireModule('gestion'), async (req, res) => {
+router.post('/', authenticate, requireModule('device_create'), async (req, res) => {
   const input = mapDeviceInput(req.body);
   let { nom, type_obj, marque, piece_id, statut, type_connexion, signal_obj, batterie, energie_consommer, description, derniere_connexion } = input;
 
@@ -104,7 +104,7 @@ router.post('/', authenticate, requireModule('gestion'), async (req, res) => {
         maison_id, nom, type_obj, marque, piece_id, statut, type_connexion,
         signal_obj, batterie, energie_consommer, description, derniere_connexion, date_creation
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, COALESCE($12, NOW()), NOW())
+      VALUES ($1, $2, $3, $4, $5, $6::statut_objet_enum, $7, $8, $9, $10, $11, COALESCE($12, NOW()), NOW())
       RETURNING id`,
       [
         req.user.maisonId || null,
@@ -137,7 +137,7 @@ router.post('/', authenticate, requireModule('gestion'), async (req, res) => {
   }
 });
 
-router.put('/:id', authenticate, requireModule('gestion'), async (req, res) => {
+router.put('/:id', authenticate, requireModule('device_config'), async (req, res) => {
   const mapped = mapDeviceInput(req.body);
   const allowed = ['nom', 'type_obj', 'marque', 'piece_id', 'statut', 'type_connexion', 'signal_obj', 'batterie', 'energie_consommer', 'description', 'derniere_connexion'];
   const fields = [];
@@ -151,7 +151,7 @@ router.put('/:id', authenticate, requireModule('gestion'), async (req, res) => {
   for (const key of allowed) {
     if (mapped[key] !== undefined) {
       values.push(key === 'statut' ? mapStatusToDb(mapped[key]) : mapped[key]);
-      fields.push(`${key} = $${values.length}`);
+      fields.push(key === 'statut' ? `${key} = $${values.length}::statut_objet_enum` : `${key} = $${values.length}`);
     }
   }
 
@@ -182,11 +182,16 @@ router.put('/:id', authenticate, requireModule('gestion'), async (req, res) => {
   }
 });
 
-router.patch('/:id/toggle', authenticate, requireModule('gestion'), async (req, res) => {
+router.patch('/:id/toggle', authenticate, requireModule('device_toggle'), async (req, res) => {
   try {
     await pool.query(
       `UPDATE objets
-       SET statut = CASE WHEN statut = 'Active' THEN 'Inactive' ELSE 'Active' END
+       SET statut = (
+         CASE WHEN statut = 'Active'::statut_objet_enum
+         THEN 'Inactive'
+         ELSE 'Active'
+         END
+       )::statut_objet_enum
        WHERE id = $1 AND (maison_id = $2 OR $2 IS NULL)`,
       [req.params.id, req.user.maisonId || null]
     );
@@ -206,7 +211,7 @@ router.patch('/:id/toggle', authenticate, requireModule('gestion'), async (req, 
   }
 });
 
-router.delete('/:id', authenticate, requireModule('administration'), async (req, res) => {
+router.delete('/:id', authenticate, requireModule('device_delete'), async (req, res) => {
   try {
     await pool.query(
       `DELETE FROM historique_objet

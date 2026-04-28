@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useDevices } from '../../context/DevicesContext';
+import { useAuth } from '../../context/AuthContext';
 import { ArrowLeft, Save, SlidersHorizontal } from 'lucide-react';
 
 const TYPE_SETTINGS = {
@@ -53,10 +54,12 @@ function normalizeType(type = '') {
 export default function GestionDevicePage() {
   const { id } = useParams();
   const { getDevice, updateDevice, toggleDevice, rooms, deviceTypes } = useDevices();
+  const { canAccess } = useAuth();
   const device = getDevice(id);
   const [form, setForm] = useState(device ? { ...device, settings: device.settings || {} } : {});
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState('');
+  const canToggle = canAccess('device_toggle');
 
   useEffect(() => {
     if (device) setForm({ ...device, settings: device.settings || {} });
@@ -229,9 +232,11 @@ export default function GestionDevicePage() {
 
             <div className="flex gap-2 mt-3" style={{ flexWrap: 'wrap' }}>
               <button type="submit" className="btn btn-primary"><Save size={15} /> Enregistrer</button>
-              <button type="button" className="btn btn-ghost" onClick={() => toggleDevice(id)}>
-                {device.status === 'active' ? 'Désactiver' : 'Activer'}
-              </button>
+              {canToggle && (
+                <button type="button" className="btn btn-ghost" onClick={() => toggleDevice(id)}>
+                  {device.status === 'active' ? 'Désactiver' : 'Activer'}
+                </button>
+              )}
               <Link to={`/objets/${id}`} className="btn btn-outline btn-sm">Voir détail</Link>
             </div>
           </div>

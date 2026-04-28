@@ -75,10 +75,10 @@ function AppRoutes() {
             <ProtectedRoute module="gestion"><GestionDashboard /></ProtectedRoute>
           } />
           <Route path="/gestion/objet/:id" element={
-            <ProtectedRoute module="gestion"><GestionDevicePage /></ProtectedRoute>
+            <ProtectedRoute module="device_config"><GestionDevicePage /></ProtectedRoute>
           } />
           <Route path="/gestion/rapports" element={
-            <ProtectedRoute module="gestion"><ReportsPage /></ProtectedRoute>
+            <ProtectedRoute module="reports"><ReportsPage /></ProtectedRoute>
           } />
 
           {/* Module Administration */}
