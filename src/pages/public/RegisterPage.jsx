@@ -1,16 +1,17 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { UserPlus, Eye, EyeOff } from 'lucide-react';
+import { UserPlus, Eye, EyeOff, KeyRound } from 'lucide-react';
 
 const ROLES = ['mère', 'père', 'enfant', 'autre'];
 
 export default function RegisterPage() {
-  const { register } = useAuth();
+  const { register, loading } = useAuth();
   const navigate = useNavigate();
   const [form, setForm] = useState({
     login: '', password: '', confirmPassword: '',
     nom: '', prenom: '', email: '',
+    accessCode: '',
     age: '', sexe: 'Homme', dateNaissance: '', role: 'père',
   });
   const [showPw, setShowPw] = useState(false);
@@ -19,12 +20,12 @@ export default function RegisterPage() {
 
   const handleChange = e => setForm(f => ({ ...f, [e.target.name]: e.target.value }));
 
-  const handleSubmit = e => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
 
     // Validation
-    if (!form.login || !form.password || !form.nom || !form.prenom || !form.email || !form.dateNaissance) {
+    if (!form.login || !form.password || !form.nom || !form.prenom || !form.email || !form.dateNaissance || !form.accessCode) {
       setError('Veuillez remplir tous les champs obligatoires.');
       return;
     }
@@ -42,8 +43,17 @@ export default function RegisterPage() {
       return;
     }
 
+    // Mapper les valeurs de genre
+    const genreMap = { 'Homme': 'H', 'Femme': 'F', 'Non-binaire': '-', 'Préfère ne pas préciser': '-' };
+    
     const { confirmPassword, ...data } = form;
-    const result = register({ ...data, age: parseInt(data.age) || 0 });
+    const submitData = { 
+      ...data, 
+      age: parseInt(data.age) || 0,
+      sexe: genreMap[data.sexe] || '-'
+    };
+    
+    const result = await register(submitData);
     if (!result.success) {
       setError(result.error);
     } else {
@@ -58,7 +68,7 @@ export default function RegisterPage() {
           <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>✅</div>
           <h1 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '1rem' }}>Inscription envoyée !</h1>
           <div className="alert alert-success mb-3">
-            Un email de validation vous a été envoyé (simulation). Votre compte sera activé après vérification par l'administrateur.
+            Votre demande a été envoyée à l'administrateur de la maison. Vous pourrez vous connecter après validation.
           </div>
           <Link to="/login" className="btn btn-primary">Se connecter</Link>
         </div>
@@ -72,9 +82,9 @@ export default function RegisterPage() {
         <div className="card">
           <div className="text-center mb-4">
             <UserPlus size={36} color="var(--color-primary)" aria-hidden="true" />
-            <h1 style={{ fontSize: '1.5rem', fontWeight: 700, margin: '.5rem 0 .25rem' }}>Créer un compte</h1>
+            <h1 style={{ fontSize: '1.5rem', fontWeight: 700, margin: '.5rem 0 .25rem' }}>Rejoindre une maison</h1>
             <p style={{ color: 'var(--color-text-muted)', fontSize: '.88rem' }}>
-              Rejoignez votre maison connectée
+              Demandez l'accès avec le code fourni par l'administrateur
             </p>
           </div>
 
@@ -88,6 +98,14 @@ export default function RegisterPage() {
                 <label className="form-label" htmlFor="reg-login">Pseudonyme (login) *</label>
                 <input id="reg-login" name="login" type="text" className="form-input"
                   value={form.login} onChange={handleChange} required autoComplete="username" />
+              </div>
+              <div className="form-group">
+                <label className="form-label" htmlFor="reg-access-code">Code d'accès maison *</label>
+                <div style={{ position: 'relative' }}>
+                  <input id="reg-access-code" name="accessCode" type="text" className="form-input"
+                    value={form.accessCode} onChange={handleChange} required style={{ paddingLeft: '2.4rem', textTransform: 'uppercase' }} />
+                  <KeyRound size={16} aria-hidden="true" style={{ position: 'absolute', left: '.85rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-muted)' }} />
+                </div>
               </div>
               <div className="form-group">
                 <label className="form-label" htmlFor="reg-email">Email *</label>
@@ -146,8 +164,9 @@ export default function RegisterPage() {
               </div>
             </div>
 
-            <button type="submit" className="btn btn-primary mt-3" style={{ width: '100%' }}>
-              <UserPlus size={16} aria-hidden="true" /> Créer mon compte
+            <button type="submit" className="btn btn-primary mt-3" style={{ width: '100%' }} disabled={loading}>
+              {loading ? <span className="spinner" style={{ width: 18, height: 18 }} aria-hidden="true" /> : <UserPlus size={16} aria-hidden="true" />}
+              {loading ? ' Création en cours…' : ' Créer mon compte'}
             </button>
           </form>
 

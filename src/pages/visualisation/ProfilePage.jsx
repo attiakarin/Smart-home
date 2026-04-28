@@ -171,7 +171,7 @@ export default function ProfilePage() {
         <div className="card">
           <h2 style={{ fontSize: '1.05rem', fontWeight: 700, marginBottom: '1rem' }}>Progression de niveau</h2>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '.5rem', fontSize: '.88rem' }}>
-            <span>Points : <strong>{currentUser.points.toFixed(2)}</strong></span>
+            <span>Points : <strong>{Number(currentUser.points || 0).toFixed(2)}</strong></span>
             {nextLvl && <span>Prochain niveau ({nextLvl}) : <strong>{nextPts} pts</strong></span>}
           </div>
           <div style={{ height: 10, background: 'var(--color-border)', borderRadius: 999, overflow: 'hidden', marginBottom: '1rem' }}>

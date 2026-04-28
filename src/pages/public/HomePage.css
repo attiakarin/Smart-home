@@ -55,6 +55,95 @@
   color: var(--color-primary);
 }
 
+.personal-home-hero {
+  background: #fff;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.personal-home-hero h1 {
+  font-size: 1.8rem;
+  font-weight: 800;
+  margin: .5rem 0 .25rem;
+}
+.personal-home-hero p {
+  color: var(--color-text-muted);
+}
+
+.quick-action-list,
+.check-list,
+.recent-searches {
+  display: flex;
+  flex-direction: column;
+  gap: .75rem;
+}
+
+.quick-action,
+.check-row,
+.recent-search {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  width: 100%;
+  padding: .8rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  background: #f8fafc;
+  color: var(--color-text);
+  text-align: left;
+  transition: background var(--transition), border-color var(--transition), transform var(--transition);
+}
+.quick-action:hover,
+.check-row:hover,
+.recent-search:hover {
+  background: #fff;
+  border-color: var(--color-primary);
+  transform: translateY(-1px);
+}
+.quick-action > span:first-child {
+  color: var(--color-primary);
+}
+.quick-action strong,
+.check-row strong {
+  display: block;
+  font-size: .92rem;
+}
+.quick-action small,
+.check-row p,
+.recent-search small {
+  color: var(--color-text-muted);
+  font-size: .78rem;
+}
+.check-row {
+  justify-content: space-between;
+}
+.check-row > span {
+  min-width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+}
+.check-row--success > span { background: #d1fae5; color: #15803d; }
+.check-row--warning > span { background: #fef3c7; color: #b45309; }
+.check-row--danger > span { background: #fee2e2; color: #991b1b; }
+.recent-search {
+  cursor: pointer;
+}
+.recent-search span {
+  flex: 1;
+  font-weight: 700;
+}
+
 /* ── QUICK CARDS ─────────────────────────────────────── */
 .quick-cards {
   display: grid;

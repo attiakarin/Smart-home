@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { Home, Menu, X, User, LogOut, Settings, LayoutDashboard, Cpu, BarChart2, Shield } from 'lucide-react';
+import { Bell, Home, Menu, X, User, LogOut, Settings, LayoutDashboard, Cpu, BarChart2, Shield, Wrench } from 'lucide-react';
 import './Navbar.css';
 
 export default function Navbar() {
-  const { currentUser, logout, canAccess } = useAuth();
+  const { currentUser, users, logout, canAccess } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
   const [dropOpen, setDropOpen] = useState(false);
   const navigate = useNavigate();
@@ -23,6 +23,9 @@ export default function Navbar() {
     avancé:        '#8b5cf6',
     expert:        '#f59e0b',
   };
+  const pendingRequests = canAccess('administration')
+    ? users.filter(user => user.status === 'pending').length
+    : 0;
 
   return (
     <header className="navbar" role="banner">
@@ -37,6 +40,13 @@ export default function Navbar() {
         <ul className="navbar-links" role="list">
           <li><NavLink to="/" end className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>Accueil</NavLink></li>
 
+          {!currentUser && (
+            <>
+              <li><NavLink to="/login" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>Connexion</NavLink></li>
+              <li><NavLink to="/creer-maison" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>Créer ma maison</NavLink></li>
+              <li><NavLink to="/inscription" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>Inscription</NavLink></li>
+            </>
+          )}
 
           {currentUser && (
             <>
@@ -46,6 +56,9 @@ export default function Navbar() {
               <li><NavLink to="/objets" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>
                 <Cpu size={15} aria-hidden="true" /> Objets
               </NavLink></li>
+              <li><NavLink to="/services" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>
+                <Wrench size={15} aria-hidden="true" /> Services
+              </NavLink></li>
               {canAccess('gestion') && (
                 <li><NavLink to="/gestion" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>
                   <BarChart2 size={15} aria-hidden="true" /> Gestion
@@ -54,6 +67,7 @@ export default function Navbar() {
               {canAccess('administration') && (
                 <li><NavLink to="/admin" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>
                   <Shield size={15} aria-hidden="true" /> Admin
+                  {pendingRequests > 0 && <span className="nav-notification">{pendingRequests}</span>}
                 </NavLink></li>
               )}
             </>
@@ -74,6 +88,7 @@ export default function Navbar() {
                   {currentUser.prenom?.[0]}{currentUser.nom?.[0]}
                 </div>
                 <span className="user-name">{currentUser.login}</span>
+                {pendingRequests > 0 && <span className="user-notification" aria-label={`${pendingRequests} demande(s) en attente`}>{pendingRequests}</span>}
               </button>
 
               {dropOpen && (
@@ -85,11 +100,16 @@ export default function Navbar() {
                     </span>
                   </div>
                   <div className="dropdown-points">
-                    <span>{currentUser.points.toFixed(2)} pts</span>
+                    <span>{Number(currentUser.points || 0).toFixed(2)} pts</span>
                   </div>
                   <Link to="/profil" className="dropdown-item" role="menuitem" onClick={() => setDropOpen(false)}>
                     <User size={15} aria-hidden="true" /> Mon profil
                   </Link>
+                  {pendingRequests > 0 && (
+                    <Link to="/admin" className="dropdown-item dropdown-item--notice" role="menuitem" onClick={() => setDropOpen(false)}>
+                      <Bell size={15} aria-hidden="true" /> {pendingRequests} demande(s) d'accès
+                    </Link>
+                  )}
                   {canAccess('administration') && (
                     <Link to="/admin/parametres" className="dropdown-item" role="menuitem" onClick={() => setDropOpen(false)}>
                       <Settings size={15} aria-hidden="true" /> Paramètres
@@ -101,12 +121,7 @@ export default function Navbar() {
                 </div>
               )}
             </div>
-          ) : (
-            <div className="navbar-auth-btns">
-              <Link to="/login"       className="btn btn-ghost btn-sm">Connexion</Link>
-              <Link to="/inscription" className="btn btn-secondary btn-sm">Inscription</Link>
-            </div>
-          )}
+          ) : null}
         </div>
 
         {/* Burger mobile */}
@@ -130,14 +145,16 @@ export default function Navbar() {
             <>
               <NavLink to="/tableau-de-bord" onClick={() => setMenuOpen(false)} className="mob-link">Dashboard</NavLink>
               <NavLink to="/objets"          onClick={() => setMenuOpen(false)} className="mob-link">Objets connectés</NavLink>
+              <NavLink to="/services"        onClick={() => setMenuOpen(false)} className="mob-link">Services</NavLink>
               <NavLink to="/profil"          onClick={() => setMenuOpen(false)} className="mob-link">Mon profil</NavLink>
               {canAccess('gestion') && <NavLink to="/gestion" onClick={() => setMenuOpen(false)} className="mob-link">Gestion</NavLink>}
-              {canAccess('administration') && <NavLink to="/admin" onClick={() => setMenuOpen(false)} className="mob-link">Administration</NavLink>}
+              {canAccess('administration') && <NavLink to="/admin" onClick={() => setMenuOpen(false)} className="mob-link">Administration {pendingRequests > 0 ? `(${pendingRequests})` : ''}</NavLink>}
               <button className="mob-link mob-link--danger" onClick={handleLogout}>Déconnexion</button>
             </>
           ) : (
             <>
               <NavLink to="/login"       onClick={() => setMenuOpen(false)} className="mob-link">Connexion</NavLink>
+              <NavLink to="/creer-maison" onClick={() => setMenuOpen(false)} className="mob-link">Créer ma maison</NavLink>
               <NavLink to="/inscription" onClick={() => setMenuOpen(false)} className="mob-link">Inscription</NavLink>
             </>
           )}
