@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { authAPI, devicesAPI, usersAPI } from '../services/api';
+import { authAPI, devicesAPI, settingsAPI, usersAPI } from '../services/api';
 
 const AuthContext = createContext(null);
 
@@ -20,6 +20,32 @@ const LEVELS = {
   'Expert':        30,
 };
 
+const DEFAULT_SETTINGS = {
+  platformName: 'Ma Maison Connectee',
+  registrationAuto: false,
+  pointsConnexion: 0.25,
+  pointsConsultation: 0.5,
+  themeColor: '#1a73e8',
+  maintenanceMode: false,
+};
+
+function isAdminUser(user) {
+  return user?.niveau === 'Expert' && user?.appRole === 'admin';
+}
+
+function applyThemeColor(color) {
+  if (!/^#[0-9a-f]{6}$/i.test(color || '')) return;
+  const root = document.documentElement;
+  root.style.setProperty('--color-primary', color);
+  root.style.setProperty('--color-primary-dark', `color-mix(in srgb, ${color} 78%, black)`);
+  root.style.setProperty('--color-hero-from', `color-mix(in srgb, ${color} 16%, white)`);
+  root.style.setProperty('--color-hero-to', `color-mix(in srgb, ${color} 8%, white)`);
+}
+
+function resetThemeColor() {
+  applyThemeColor(DEFAULT_SETTINGS.themeColor);
+}
+
 export function AuthProvider({ children }) {
   const [users, setUsers] = useState([]);
   const [currentUser, setCurrentUser] = useState(() => {
@@ -28,6 +54,32 @@ export function AuthProvider({ children }) {
   });
   const [devices, setDevices] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [settings, setSettings] = useState(() => {
+    const saved = localStorage.getItem('sh_settings');
+    return saved ? { ...DEFAULT_SETTINGS, ...JSON.parse(saved) } : DEFAULT_SETTINGS;
+  });
+
+  useEffect(() => {
+    localStorage.setItem('sh_settings', JSON.stringify(settings));
+    if (isAdminUser(currentUser)) {
+      applyThemeColor(settings.themeColor);
+    } else {
+      resetThemeColor();
+    }
+  }, [settings, currentUser]);
+
+  useEffect(() => {
+    const loadSettings = async () => {
+      if (!isAdminUser(currentUser)) return;
+      try {
+        const data = await settingsAPI.get();
+        setSettings({ ...DEFAULT_SETTINGS, ...data });
+      } catch (err) {
+        console.error('Erreur chargement parametres:', err);
+      }
+    };
+    loadSettings();
+  }, [currentUser]);
 
   // Charge l'utilisateur actuel au démarrage (si token existe)
   useEffect(() => {
@@ -91,13 +143,19 @@ export function AuthProvider({ children }) {
     authAPI.logout();
     setCurrentUser(null);
     setDevices([]);
+    resetThemeColor();
   }, []);
 
-  const register = useCallback(async (data) => {
+  const register = useCallback(async (data, options = {}) => {
     setLoading(true);
     try {
-      const result = await authAPI.register(data);
-      return { success: true };
+      const result = await authAPI.register(data, { persistSession: options.persistSession !== false });
+      if (result.user && options.persistSession !== false) {
+        setCurrentUser(normalizeUser(result.user));
+      } else if (options.persistSession !== false) {
+        setCurrentUser(null);
+      }
+      return { success: true, ...result };
     } catch (err) {
       return { success: false, error: err.message || 'Erreur inscription.' };
     } finally {
@@ -121,22 +179,23 @@ export function AuthProvider({ children }) {
     try {
       const isOwnProfile = String(currentUser?.id) === String(userId);
       const isAdmin = currentUser?.niveau === 'Expert' && currentUser?.appRole === 'admin';
+      let savedUser = null;
       if (isOwnProfile && !isAdmin) {
         const profileData = { ...data, genre: data.genre ?? data.sexe };
         delete profileData.sexe;
         await authAPI.updateProfile(profileData);
       } else {
-        await usersAPI.update(userId, data);
+        savedUser = normalizeUser(await usersAPI.update(userId, data));
       }
       const localPatch = {
-        ...data,
+        ...(savedUser || data),
         ...(data.points !== undefined ? { points: Number(data.points || 0) } : {}),
         ...(data.rolee ? { appRole: data.rolee } : {}),
       };
       setUsers(prev => prev.map(user => (
-        user.id === userId ? { ...user, ...localPatch } : user
+        String(user.id) === String(userId) ? { ...user, ...localPatch } : user
       )));
-      if (currentUser?.id === userId) {
+      if (String(currentUser?.id) === String(userId)) {
         const updated = { ...currentUser, ...localPatch };
         setCurrentUser(updated);
         localStorage.setItem('sh_current_user', JSON.stringify(updated));
@@ -150,11 +209,26 @@ export function AuthProvider({ children }) {
   const deleteUser = useCallback(async (userId) => {
     try {
       await usersAPI.delete(userId);
-      setUsers(prev => prev.filter(user => user.id !== userId));
+      setUsers(prev => prev.filter(user => String(user.id) !== String(userId)));
     } catch (err) {
       console.error('Erreur suppression utilisateur:', err);
       throw err;
     }
+  }, []);
+
+  const updateSettings = useCallback(async (data) => {
+    const nextSettings = await settingsAPI.update(data);
+    setSettings({ ...DEFAULT_SETTINGS, ...nextSettings });
+    return nextSettings;
+  }, []);
+
+  const deleteCurrentAccount = useCallback(async (data) => {
+    await authAPI.deleteMe(data);
+    authAPI.logout();
+    setCurrentUser(null);
+    setUsers([]);
+    setDevices([]);
+    resetThemeColor();
   }, []);
 
   const logAction = useCallback(async () => {
@@ -197,6 +271,8 @@ export function AuthProvider({ children }) {
       login, logout, register,
       createHouse,
       updateUser, deleteUser,
+      settings, updateSettings,
+      deleteCurrentAccount,
       logAction,
       canAccess, computeLevel,
       loading,

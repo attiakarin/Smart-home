@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useDevices } from '../../context/DevicesContext';
 import { Users, Cpu, Settings, BarChart2, Shield, AlertTriangle, Check, X, KeyRound } from 'lucide-react';
+import { formatDateTime } from '../../constants/smartHome';
 
 const LEVELS = ['Débutant', 'Intermédiaire', 'Avancé', 'Expert'];
 const LEVEL_POINTS = { Débutant: 0, Intermédiaire: 5, Avancé: 15, Expert: 30 };
@@ -199,7 +200,7 @@ export default function AdminDashboard() {
                   </span>
                 </td>
                 <td style={{ fontSize: '.82rem', color: 'var(--color-text-muted)' }}>
-                  {u.lastLogin ? new Date(u.lastLogin).toLocaleDateString('fr-FR') : '—'}
+                  {formatDateTime(u.lastLogin)}
                 </td>
               </tr>
             ))}

@@ -1,5 +1,6 @@
 import { Bus, Clock } from 'lucide-react';
-import { TRANSPORTS } from '../../data/mockData';
+
+const TRANSPORTS = [];
 
 export default function TransportsPage() {
   return (

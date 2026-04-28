@@ -2,19 +2,16 @@ import { useAuth } from '../../context/AuthContext';
 import { useDevices } from '../../context/DevicesContext';
 import { Link } from 'react-router-dom';
 import { Activity, BarChart2, Bell, Cpu, KeyRound, Plus, Shield, TrendingUp, User, Wrench, Zap } from 'lucide-react';
-import { LEVELS } from '../../data/mockData';
+import { LEVELS } from '../../constants/smartHome';
 
-const LEVEL_COLORS = {
-  débutant: '#6b7280',
-  intermédiaire: '#3b82f6',
-  avancé: '#8b5cf6',
-  expert: '#f59e0b',
-};
+const LEVEL_COLORS = Object.fromEntries(
+  Object.entries(LEVELS).map(([level, config]) => [level.toLowerCase(), config.color])
+);
 
 const NEXT_LEVEL = {
-  débutant: 'intermédiaire',
-  intermédiaire: 'avancé',
-  avancé: 'expert',
+  débutant: 'Intermédiaire',
+  intermédiaire: 'Avancé',
+  avancé: 'Expert',
   expert: null,
 };
 
@@ -86,7 +83,7 @@ export default function DashboardPage() {
             </span>
             <p style={{ marginTop: '.3rem', fontSize: '.88rem', color: 'var(--color-text-muted)' }}>
               {Number(currentUser.points || 0).toFixed(2)} / {nextPts ?? '∞'} points
-              {!isAdmin && next && <> - prochain niveau : <strong style={{ color: LEVEL_COLORS[next] }}>{next}</strong></>}
+              {!isAdmin && next && <> - prochain niveau : <strong style={{ color: LEVELS[next].color }}>{next}</strong></>}
             </p>
           </div>
           <div style={{ textAlign: 'right', fontSize: '.85rem', color: 'var(--color-text-muted)' }}>

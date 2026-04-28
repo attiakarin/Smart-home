@@ -2,13 +2,12 @@ import { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, UserPlus, Trash2, Edit3, Check, X } from 'lucide-react';
+import { LEVEL_OPTIONS, LEVEL_POINTS, formatDateTime } from '../../constants/smartHome';
 
-const LEVELS = ['débutant', 'intermédiaire', 'avancé', 'expert'];
-const LEVEL_PTS = { débutant: 0, intermédiaire: 5, avancé: 15, expert: 30 };
 
 export default function AdminUsers() {
-  const levelOptions = ['Débutant', 'Intermédiaire', 'Avancé', 'Expert'];
-  const levelPoints = { Débutant: 0, Intermédiaire: 5, Avancé: 15, Expert: 30 };
+  const levelOptions = LEVEL_OPTIONS;
+  const levelPoints = LEVEL_POINTS;
   const appRoles = [
     { value: 'habitant', label: 'Habitant' },
     { value: 'admin', label: 'Administrateur' },
@@ -32,17 +31,22 @@ export default function AdminUsers() {
     setEditForm({ niveau: u.niveau, role: u.role, rolee: u.appRole || 'habitant', points: u.points, status: u.status });
   };
 
-  const saveEdit = (id) => {
-    updateUser(id, {
-      niveau: editForm.rolee === 'admin' ? 'Expert' : editForm.niveau,
-      role: editForm.role,
-      rolee: editForm.rolee,
-      points: parseFloat(editForm.points) || 0,
-      status: editForm.status,
-    });
-    setEditId(null);
-    setSaved('Utilisateur mis à jour !');
-    setTimeout(() => setSaved(''), 2500);
+  const saveEdit = async (id) => {
+    try {
+      await updateUser(id, {
+        niveau: editForm.rolee === 'admin' ? 'Expert' : editForm.niveau,
+        role: editForm.role,
+        rolee: editForm.rolee,
+        points: parseFloat(editForm.points) || 0,
+        status: editForm.status,
+      });
+      setEditId(null);
+      setSaved('Utilisateur mis à jour.');
+      setTimeout(() => setSaved(''), 2500);
+    } catch (err) {
+      setSaved('');
+      setAddError(err.message || 'Impossible de modifier cet utilisateur.');
+    }
   };
 
   const handleApprove = (user) => updateUser(user.id, {
@@ -51,17 +55,26 @@ export default function AdminUsers() {
     rolee: user.appRole || 'habitant',
     points: user.points || 0,
   });
-  const handleReject  = (id) => updateUser(id, { status: 'rejected' });
+  const handleReject = async (id) => {
+    try {
+      await updateUser(id, { status: 'rejected' });
+    } catch (err) {
+      setAddError(err.message || 'Impossible de rejeter cet utilisateur.');
+    }
+  };
 
   const handleAdd = async (e) => {
     e.preventDefault();
     setAddError('');
     if (!addForm.login || !addForm.email || !addForm.password) { setAddError('Champs obligatoires manquants.'); return; }
-    const res = await register({ ...addForm, accessCode: currentUser?.maisonCode || 'MAISON2026', age: 0, sexe: 'Homme', dateNaissance: '', photo: null });
+    const res = await register(
+      { ...addForm, accessCode: currentUser?.maisonCode || 'MAISON2026', age: 0, sexe: 'Homme', dateNaissance: '', photo: null },
+      { persistSession: false }
+    );
     if (!res.success) { setAddError(res.error); return; }
-    // Auto-approve admin-created users
-    const newU = users[users.length - 1];
-    if (newU) updateUser(newU.id, { status: 'approved', niveau: addForm.niveau, rolee: 'habitant', points: levelPoints[addForm.niveau] });
+    if (res.id) {
+      await updateUser(res.id, { status: 'approved', niveau: addForm.niveau, rolee: 'habitant', points: levelPoints[addForm.niveau] });
+    }
     setShowAdd(false);
     setAddForm({ login:'', prenom:'', nom:'', email:'', password:'', role:'père', niveau:'Débutant' });
     setSaved('Utilisateur créé et approuvé !');
@@ -77,6 +90,7 @@ export default function AdminUsers() {
       </div>
 
       {saved && <div className="alert alert-success mb-3" role="status">{saved}</div>}
+      {addError && !showAdd && <div className="alert alert-error mb-3" role="alert">{addError}</div>}
 
       {/* Add form */}
       {showAdd && (
@@ -166,7 +180,7 @@ export default function AdminUsers() {
                   ) : Number(u.points || 0).toFixed(2)}
                 </td>
                 <td style={{ fontSize: '.82rem', color: 'var(--color-text-muted)' }}>
-                  {u.lastLogin ? new Date(u.lastLogin).toLocaleDateString('fr-FR', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Jamais'}
+                  {formatDateTime(u.lastLogin)}
                 </td>
                 <td>
                   <span className={`badge ${u.status === 'approved' ? 'badge-success' : u.status === 'pending' ? 'badge-warning' : 'badge-danger'}`}>
@@ -208,7 +222,7 @@ export default function AdminUsers() {
             </div>
             <div className="modal-footer">
               <button className="btn btn-ghost" onClick={() => setDeleteId(null)}>Annuler</button>
-              <button className="btn btn-danger" onClick={() => { deleteUser(deleteId); setDeleteId(null); }}>Supprimer</button>
+              <button className="btn btn-danger" onClick={async () => { try { await deleteUser(deleteId); setDeleteId(null); setSaved('Utilisateur supprimé.'); setTimeout(() => setSaved(''), 2500); } catch (err) { setDeleteId(null); setAddError(err.message || 'Impossible de supprimer cet utilisateur.'); } }}>Supprimer</button>
             </div>
           </div>
         </div>

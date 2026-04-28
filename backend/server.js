@@ -7,6 +7,7 @@ import authRoutes    from './routes/auth.js';
 import usersRoutes   from './routes/users.js';
 import devicesRoutes from './routes/devices.js';
 import publicRoutes  from './routes/public.js';
+import settingsRoutes from './routes/settings.js';
 
 dotenv.config();
 
@@ -25,6 +26,7 @@ app.use('/api/auth',    authRoutes);
 app.use('/api/users',   usersRoutes);
 app.use('/api/devices', devicesRoutes);
 app.use('/api/public',  publicRoutes);
+app.use('/api/settings', settingsRoutes);
 
 // ─── Health check ─────────────────────────────────────────────────────────
 app.get('/api/health', (_req, res) => res.json({ status: 'ok', time: new Date() }));

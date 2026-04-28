@@ -151,7 +151,7 @@ function PublicHome() {
                 <div className="house-icon-chip"><Shield size={22} /><span>Sécurité</span></div>
                 <div className="house-icon-chip"><Zap size={22} /><span>Énergie</span></div>
               </div>
-              <div className="house-3d-placeholder">Maison</div>
+              <img className="house-3d-placeholder" src="/favicon.svg" alt="" />
             </div>
           </div>
         </div>

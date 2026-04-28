@@ -45,13 +45,21 @@ export const authAPI = {
   },
 
   // Inscription
-  register: async (userData) => {
+  register: async (userData, options = {}) => {
+    const { persistSession = true } = options;
     const response = await fetch(`${API_BASE_URL}/auth/register`, {
       method: 'POST',
       headers: getHeaders(false),
       body: JSON.stringify(userData),
     });
-    return handleResponse(response);
+    const data = await handleResponse(response);
+    if (persistSession && data.token) localStorage.setItem('sh_token', data.token);
+    if (persistSession && data.user) localStorage.setItem('sh_current_user', JSON.stringify(data.user));
+    if (persistSession && !data.token) {
+      localStorage.removeItem('sh_token');
+      localStorage.removeItem('sh_current_user');
+    }
+    return data;
   },
 
   // Crée une maison et le compte admin associé
@@ -78,6 +86,16 @@ export const authAPI = {
       method: 'PUT',
       headers: getHeaders(true),
       body: JSON.stringify(profileData),
+    });
+    return handleResponse(response);
+  },
+
+  // Supprime definitivement le compte connecte
+  deleteMe: async (data) => {
+    const response = await fetch(`${API_BASE_URL}/auth/me`, {
+      method: 'DELETE',
+      headers: getHeaders(true),
+      body: JSON.stringify(data),
     });
     return handleResponse(response);
   },
@@ -199,6 +217,25 @@ export const usersAPI = {
     const response = await fetch(`${API_BASE_URL}/users/${id}`, {
       method: 'DELETE',
       headers: getHeaders(true),
+    });
+    return handleResponse(response);
+  },
+};
+
+// Parametres plateforme
+export const settingsAPI = {
+  get: async () => {
+    const response = await fetch(`${API_BASE_URL}/settings`, {
+      headers: getHeaders(true),
+    });
+    return handleResponse(response);
+  },
+
+  update: async (settings) => {
+    const response = await fetch(`${API_BASE_URL}/settings`, {
+      method: 'PUT',
+      headers: getHeaders(true),
+      body: JSON.stringify(settings),
     });
     return handleResponse(response);
   },

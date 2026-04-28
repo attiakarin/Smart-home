@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { User, Edit3, Save, X, Eye, EyeOff, Camera, Trash2 } from 'lucide-react';
-import { LEVELS } from '../../data/mockData';
+import { LEVELS, LEVEL_COLORS } from '../../constants/smartHome';
 
 function calculateAge(dateValue) {
   if (!dateValue) return '';
@@ -32,9 +32,9 @@ export default function ProfilePage() {
   const [success, setSuccess] = useState('');
   const [error, setError]   = useState('');
 
-  const levelColors = { débutant:'#6b7280', intermédiaire:'#3b82f6', avancé:'#8b5cf6', expert:'#f59e0b' };
-  const nextLevels  = { débutant:'intermédiaire', intermédiaire:'avancé', avancé:'expert', expert:null };
-  const nextLvl     = nextLevels[currentUser.niveau];
+  const levelColors = LEVEL_COLORS;
+  const nextLevels  = { débutant: 'Intermédiaire', intermédiaire: 'Avancé', avancé: 'Expert', expert: null };
+  const nextLvl     = nextLevels[currentUser.niveau?.toLowerCase()];
   const nextPts     = nextLvl ? LEVELS[nextLvl].points : null;
   const progress    = nextPts ? Math.min(100, (currentUser.points / nextPts) * 100).toFixed(0) : 100;
 

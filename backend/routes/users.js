@@ -115,12 +115,24 @@ router.put('/:id', async (req, res) => {
     if (fields.length === 0) return res.status(400).json({ error: 'Aucun champ a modifier.' });
 
     values.push(req.params.id, req.user.maisonId || null);
-    await pool.query(
+    const { rows } = await pool.query(
       `UPDATE users SET ${fields.join(', ')}
-       WHERE id = $${values.length - 1} AND (maison_id = $${values.length} OR $${values.length} IS NULL)`,
+       WHERE id = $${values.length - 1} AND (maison_id = $${values.length} OR $${values.length} IS NULL)
+       RETURNING id`,
       values
     );
-    res.json({ message: 'Utilisateur mis a jour.' });
+
+    if (!rows[0]) return res.status(404).json({ error: 'Utilisateur introuvable.' });
+    const updated = await pool.query(
+      `SELECT users.id, pseudonyme, email, users.nom, prenom, age, genre, date_naissance, rolee, role_maison, maison_id,
+              niveau, points, photo, statut, connexions, actions, derniere_connexion,
+              maisons.nom AS maison_nom, maisons.code_acces
+       FROM users
+       LEFT JOIN maisons ON maisons.id = users.maison_id
+       WHERE users.id = $1`,
+      [rows[0].id]
+    );
+    res.json(mapUser(updated.rows[0]));
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Erreur serveur.' });
@@ -140,10 +152,11 @@ router.delete('/:id', async (req, res) => {
          AND (users.maison_id = $2 OR $2 IS NULL)`,
       [req.params.id, req.user.maisonId || null]
     );
-    await pool.query(
+    const deleted = await pool.query(
       'DELETE FROM users WHERE id = $1 AND (maison_id = $2 OR $2 IS NULL)',
       [req.params.id, req.user.maisonId || null]
     );
+    if (deleted.rowCount === 0) return res.status(404).json({ error: 'Utilisateur introuvable.' });
     res.json({ message: 'Utilisateur supprime.' });
   } catch (err) {
     console.error(err);

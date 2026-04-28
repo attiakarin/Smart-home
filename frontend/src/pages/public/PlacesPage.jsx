@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { MapPin, Clock, ExternalLink } from 'lucide-react';
-import { PLACES } from '../../data/mockData';
+
+const PLACES = [];
 
 const TYPES = ['Tous', 'Parc', 'Bibliothèque', 'Musée', 'Restaurant', 'Sport'];
 const DISTANCES_OPT = ['Toutes', '< 0.5 km', '< 1 km', '< 2 km'];

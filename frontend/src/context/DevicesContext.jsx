@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { devicesAPI } from '../services/api';
-import { ROOMS, DEVICE_TYPES } from '../data/mockData';
+import { ROOMS, DEVICE_TYPES } from '../constants/smartHome';
 import { useAuth } from './AuthContext';
 
 const DevicesContext = createContext(null);
@@ -63,7 +63,7 @@ export function DevicesProvider({ children }) {
     setLoading(true);
     try {
       await devicesAPI.delete(id);
-      setDevices(prev => prev.filter(d => d.id !== id));
+      setDevices(prev => prev.filter(d => String(d.id) !== String(id)));
     } catch (err) {
       console.error('Erreur suppression appareil:', err);
       throw err;

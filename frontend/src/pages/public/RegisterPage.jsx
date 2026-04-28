@@ -27,7 +27,7 @@ export default function RegisterPage() {
   });
   const [showPw, setShowPw] = useState(false);
   const [error, setError]   = useState('');
-  const [success, setSuccess] = useState(false);
+  const [success, setSuccess] = useState(null);
 
   const handleChange = e => {
     const { name, value } = e.target;
@@ -74,8 +74,21 @@ export default function RegisterPage() {
     const result = await register(submitData);
     if (!result.success) {
       setError(result.error);
+    } else if (result.autoApproved) {
+      setSuccess({
+        title: 'Inscription validée !',
+        message: result.message || 'Votre inscription est validée. Vous êtes connecté directement.',
+        actionLabel: 'Accéder au tableau de bord',
+        actionTo: '/tableau-de-bord',
+      });
+      setTimeout(() => navigate('/tableau-de-bord'), 1400);
     } else {
-      setSuccess(true);
+      setSuccess({
+        title: 'Inscription envoyée !',
+        message: result.message || "Votre demande a été envoyée à l'administrateur de la maison. Vous pourrez vous connecter après validation.",
+        actionLabel: 'Se connecter',
+        actionTo: '/login',
+      });
     }
   };
 
@@ -84,11 +97,11 @@ export default function RegisterPage() {
       <div className="container section text-center animate-fade">
         <div style={{ maxWidth: 480, margin: '0 auto' }}>
           <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>✅</div>
-          <h1 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '1rem' }}>Inscription envoyée !</h1>
+          <h1 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '1rem' }}>{success.title}</h1>
           <div className="alert alert-success mb-3">
-            Votre demande a été envoyée à l'administrateur de la maison. Vous pourrez vous connecter après validation.
+            {success.message}
           </div>
-          <Link to="/login" className="btn btn-primary">Se connecter</Link>
+          <Link to={success.actionTo} className="btn btn-primary">{success.actionLabel}</Link>
         </div>
       </div>
     );

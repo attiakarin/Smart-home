@@ -4,12 +4,11 @@ import jwt from 'jsonwebtoken';
 import { body, validationResult } from 'express-validator';
 import pool from '../config/db.js';
 import { authenticate } from '../middleware/auth.js';
-import { sendWelcomeEmail } from '../config/mailer.js';
+import { getAppSettings } from '../config/appSettings.js';
 import { mapUser } from '../utils/userMapper.js';
 
 const router = Router();
 
-const POINTS_CONFIG = { connexion: 0.25, consultation: 0.50 };
 const LEVELS = {
   'Débutant': 0,
   'Intermédiaire': 5,
@@ -67,6 +66,7 @@ router.post('/login',
         [login]
       );
       const user = rows[0];
+      const settings = await getAppSettings(user?.maison_id);
 
       if (!user) return res.status(401).json({ error: 'Identifiants incorrects.' });
       const valid = await bcrypt.compare(password, user.mot_de_passe);
@@ -81,7 +81,7 @@ router.post('/login',
         return res.status(403).json({ error: 'Votre compte n est pas encore actif.' });
       }
 
-      const newPoints = parseFloat((parseFloat(user.points) + POINTS_CONFIG.connexion).toFixed(2));
+      const newPoints = parseFloat((parseFloat(user.points) + settings.pointsConnexion).toFixed(2));
       const newNiveau = computeLevel(newPoints);
       const now = new Date();
 
@@ -133,33 +133,54 @@ router.post('/register',
       }
 
       const houses = await pool.query(
-        'SELECT id FROM maisons WHERE code_acces = $1 LIMIT 1',
+        'SELECT id, nom, code_acces FROM maisons WHERE code_acces = $1 LIMIT 1',
         [accessCode.trim().toUpperCase()]
       );
       const maison = houses.rows[0];
       if (!maison) {
         return res.status(404).json({ error: 'Code acces maison invalide.' });
       }
+      const settings = await getAppSettings(maison.id);
+      if (settings.maintenanceMode) {
+        return res.status(503).json({ error: 'Les inscriptions sont fermees pendant la maintenance.' });
+      }
 
       const passwordHash = await bcrypt.hash(password, 12);
+
+      const statut = settings.registrationAuto ? 'Approuv\u00e9' : 'Attente';
+      const message = settings.registrationAuto
+        ? "L'administrateur a confirme l'inscription automatiquement. Vous allez etre redirige vers votre compte."
+        : "Votre demande a ete envoyee a l'administrateur de la maison. Vous pourrez vous connecter apres validation.";
 
       const result = await pool.query(
         `INSERT INTO users (
           pseudonyme, mot_de_passe, email, nom, prenom, age, genre, date_naissance,
           rolee, role_maison, maison_id, niveau, points, statut, connexions, actions
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'habitant', $9, $10, 'Débutant', 0, 'Attente', 0, 0)
-        RETURNING id`,
-        [login, passwordHash, email, nom, prenom, age, sexe || null, dateNaissance, role || 'autre', maison.id]
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'habitant', $9, $10, 'Débutant', 0, $11, 0, 0)
+        RETURNING *`,
+        [login, passwordHash, email, nom, prenom, age, sexe || null, dateNaissance, role || 'autre', maison.id, statut]
       );
 
-      try {
-        await sendWelcomeEmail(email, prenom);
-      } catch (mailErr) {
-        console.warn('Email non envoye :', mailErr.message);
+      if (settings.registrationAuto) {
+        const user = result.rows[0];
+        const payload = {
+          id: user.id,
+          login: user.pseudonyme,
+          niveau: user.niveau,
+          rolee: user.rolee,
+          maisonId: user.maison_id,
+        };
+        const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN || '7d' });
+        return res.status(201).json({
+          message,
+          autoApproved: true,
+          token,
+          user: mapUser({ ...user, maison_nom: maison.nom, code_acces: accessCode.trim().toUpperCase() }),
+        });
       }
 
-      res.status(201).json({ message: 'Inscription en attente de validation par un administrateur.', id: result.rows[0].id });
+      res.status(201).json({ message, id: result.rows[0].id, autoApproved: false });
     } catch (err) {
       console.error('Erreur register :', err.message);
       res.status(500).json({ error: 'Erreur serveur : ' + err.message });
@@ -184,6 +205,11 @@ router.post('/create-house',
     const client = await pool.connect();
 
     try {
+      const settings = await getAppSettings(req.user.maisonId);
+      if (settings.maintenanceMode) {
+        return res.status(503).json({ error: 'La creation de maison est fermee pendant la maintenance.' });
+      }
+
       await client.query('BEGIN');
 
       const existing = await client.query(
@@ -296,12 +322,39 @@ router.put('/profile', authenticate, async (req, res) => {
   }
 });
 
+router.delete('/me', authenticate, async (req, res) => {
+  const { password, confirmation } = req.body || {};
+
+  if (confirmation !== 'SUPPRIMER') {
+    return res.status(400).json({ error: 'Confirmation invalide.' });
+  }
+  if (!password) {
+    return res.status(400).json({ error: 'Mot de passe requis.' });
+  }
+
+  try {
+    const { rows } = await pool.query('SELECT id, mot_de_passe FROM users WHERE id = $1', [req.user.id]);
+    const user = rows[0];
+    if (!user) return res.status(404).json({ error: 'Utilisateur introuvable.' });
+
+    const valid = await bcrypt.compare(password, user.mot_de_passe);
+    if (!valid) return res.status(401).json({ error: 'Mot de passe incorrect.' });
+
+    await pool.query('DELETE FROM users WHERE id = $1', [req.user.id]);
+    res.json({ message: 'Compte supprime definitivement.' });
+  } catch (err) {
+    console.error('Erreur suppression compte :', err);
+    res.status(500).json({ error: 'Erreur serveur.' });
+  }
+});
+
 router.post('/log-action', authenticate, async (req, res) => {
   try {
+    const settings = await getAppSettings();
     const { rows } = await pool.query('SELECT points, actions FROM users WHERE id = $1', [req.user.id]);
     if (!rows[0]) return res.status(404).json({ error: 'Utilisateur introuvable.' });
 
-    const newPoints = parseFloat((parseFloat(rows[0].points) + POINTS_CONFIG.consultation).toFixed(2));
+    const newPoints = parseFloat((parseFloat(rows[0].points) + settings.pointsConsultation).toFixed(2));
     const newNiveau = computeLevel(newPoints);
 
     await pool.query(

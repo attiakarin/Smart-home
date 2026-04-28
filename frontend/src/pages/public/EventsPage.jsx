@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Calendar, MapPin, Tag } from 'lucide-react';
-import { EVENTS } from '../../data/mockData';
+
+const EVENTS = [];
 
 const TYPES = ['Tous', 'Marché', 'Concert', 'Atelier', 'Festival', 'Exposition'];
 
