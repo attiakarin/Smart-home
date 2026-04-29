@@ -62,6 +62,19 @@ function isAdult(dateValue) {
   return age !== null && age >= 18;
 }
 
+function toDbGenre(value) {
+  if (value === undefined) return undefined;
+  if (value === null || value === '') return '-';
+  const normalized = value
+    .toString()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+  if (normalized === 'f' || normalized === 'femme') return 'F';
+  if (normalized === 'h' || normalized === 'homme') return 'H';
+  return '-';
+}
+
 router.post('/login',
   body('login').notEmpty().trim(),
   body('password').notEmpty(),
@@ -73,10 +86,17 @@ router.post('/login',
 
     try {
       const { rows } = await pool.query(
-        `SELECT users.*, maisons.nom AS maison_nom, maisons.code_acces
+        `SELECT users.*, maisons.nom AS maison_nom, maisons.code_acces,
+                admin.id AS admin_id,
+                admin.pseudonyme AS admin_login,
+                admin.prenom AS admin_prenom,
+                admin.nom AS admin_nom,
+                admin.email AS admin_email
          FROM users
          LEFT JOIN maisons ON maisons.id = users.maison_id
-         WHERE pseudonyme = $1
+         LEFT JOIN users admin ON admin.maison_id = users.maison_id AND admin.rolee = 'admin'
+         WHERE users.pseudonyme = $1
+         ORDER BY admin.id ASC
          LIMIT 1`,
         [login]
       );
@@ -180,7 +200,7 @@ router.post('/register',
         )
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'habitant', $9, $10, 'Débutant', 0, $11, 0, 0)
         RETURNING *`,
-        [login, passwordHash, email, nom, prenom, age, sexe || null, dateNaissance, role || 'autre', maison.id, statut]
+        [login, passwordHash, email, nom, prenom, age, toDbGenre(sexe), dateNaissance, role || 'autre', maison.id, statut]
       );
 
       if (settings.registrationAuto) {
@@ -269,7 +289,7 @@ router.post('/create-house',
         )
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'admin', $9, $10, 'Expert', 30, 'Approuvé', 0, 0)
         RETURNING id`,
-        [login, passwordHash, email, nom, prenom, age, sexe || null, dateNaissance, 'admin', houseId]
+        [login, passwordHash, email, nom, prenom, age, toDbGenre(sexe), dateNaissance, 'admin', houseId]
       );
 
       await client.query('COMMIT');
@@ -294,9 +314,15 @@ router.get('/me', authenticate, async (req, res) => {
     const { rows } = await pool.query(
       `SELECT users.id, pseudonyme, email, users.nom, prenom, age, genre, date_naissance, rolee, role_maison, maison_id,
               niveau, points, photo, statut, connexions, actions, derniere_connexion,
-              maisons.nom AS maison_nom, maisons.code_acces
+              maisons.nom AS maison_nom, maisons.code_acces,
+              admin.id AS admin_id,
+              admin.pseudonyme AS admin_login,
+              admin.prenom AS admin_prenom,
+              admin.nom AS admin_nom,
+              admin.email AS admin_email
        FROM users
        LEFT JOIN maisons ON maisons.id = users.maison_id
+       LEFT JOIN users admin ON admin.maison_id = users.maison_id AND admin.rolee = 'admin'
        WHERE users.id = $1`,
       [req.user.id]
     );
@@ -312,6 +338,14 @@ router.put('/profile', authenticate, async (req, res) => {
   const dateNaissance = normalizeDateOnly(req.body.dateNaissance ?? req.body.date_naissance);
   if (isFutureDate(dateNaissance)) {
     return res.status(400).json({ error: 'La date de naissance ne peut pas etre dans le futur.' });
+  }
+  const currentUserResult = await pool.query('SELECT date_naissance FROM users WHERE id = $1', [req.user.id]);
+  const currentBirthDate = normalizeDateOnly(currentUserResult.rows[0]?.date_naissance);
+  if (!isAdult(currentBirthDate)) {
+    return res.status(403).json({ error: 'Vous devez avoir au moins 18 ans pour modifier votre profil.' });
+  }
+  if (dateNaissance !== undefined && !isAdult(dateNaissance)) {
+    return res.status(400).json({ error: 'La date de naissance doit correspondre a une personne majeure.' });
   }
   const age = dateNaissance !== undefined ? calculateAge(dateNaissance) : req.body.age;
 
@@ -333,7 +367,7 @@ router.put('/profile', authenticate, async (req, res) => {
     if (nom !== undefined) addField('nom', nom);
     if (prenom !== undefined) addField('prenom', prenom);
     if (age !== undefined) addField('age', age);
-    if (genre !== undefined) addField('genre', genre);
+    if (genre !== undefined) addField('genre', toDbGenre(genre));
     if (dateNaissance !== undefined) addField('date_naissance', dateNaissance);
     if (role !== undefined) addField('role_maison', role);
     if (rolee !== undefined) addField('rolee', rolee);

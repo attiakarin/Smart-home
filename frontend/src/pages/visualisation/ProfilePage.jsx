@@ -6,6 +6,23 @@ function getTodayDateInput() {
   return new Date().toISOString().slice(0, 10);
 }
 
+function calculateAge(dateValue) {
+  if (!dateValue) return null;
+  const birthDate = new Date(dateValue);
+  if (Number.isNaN(birthDate.getTime())) return null;
+  const today = new Date();
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const monthDelta = today.getMonth() - birthDate.getMonth();
+  if (monthDelta < 0 || (monthDelta === 0 && today.getDate() < birthDate.getDate())) age -= 1;
+  return age >= 0 ? age : null;
+}
+
+function getAdultMaxBirthDate() {
+  const date = new Date();
+  date.setFullYear(date.getFullYear() - 18);
+  return date.toISOString().slice(0, 10);
+}
+
 
 
 export default function ProfilePage() {
@@ -24,7 +41,11 @@ export default function ProfilePage() {
   });
   const [success, setSuccess] = useState('');
   const [error, setError]   = useState('');
-  const maxBirthDate = getTodayDateInput();
+  const maxBirthDate = getAdultMaxBirthDate();
+  const age = calculateAge(currentUser.dateNaissance);
+  const canEditProfile = age === null || age >= 18;
+  const houseAdmin = users.find(user => user.appRole === 'admin' && String(user.maisonId) === String(currentUser.maisonId));
+  const showHouseAdmin = currentUser.appRole !== 'admin' && houseAdmin;
 
   const levelColors = LEVEL_COLORS;
   const nextLevels  = { débutant: 'Intermédiaire', intermédiaire: 'Avancé', avancé: 'Expert', expert: null };
@@ -65,6 +86,14 @@ export default function ProfilePage() {
     setError('');
     if (form.password && form.password.length < 8) {
       setError('Le nouveau mot de passe doit faire au moins 8 caractères.');
+      return;
+    }
+    if (!canEditProfile) {
+      setError('Vous devez avoir au moins 18 ans pour modifier votre profil.');
+      return;
+    }
+    if (calculateAge(form.dateNaissance) < 18) {
+      setError('La date de naissance doit correspondre à une personne majeure.');
       return;
     }
     // Check login uniqueness
@@ -129,12 +158,18 @@ export default function ProfilePage() {
                 {currentUser.niveau}
               </span>
             </div>
-            {!editing && (
+            {!editing && canEditProfile && (
               <button className="btn btn-outline btn-sm" style={{ marginLeft: 'auto' }} onClick={() => setEditing(true)}>
                 <Edit3 size={14} /> Modifier
               </button>
             )}
           </div>
+
+          {!canEditProfile && (
+            <div className="alert alert-info mb-3" role="status">
+              Ce compte appartient à un mineur. Le profil pourra être modifié à partir de 18 ans.
+            </div>
+          )}
 
           {/* Profil public */}
           {!editing ? (
@@ -144,6 +179,12 @@ export default function ProfilePage() {
               <div><dt>Âge</dt><dd>{currentUser.age} ans</dd></div>
               <div><dt>Sexe</dt><dd>{currentUser.sexe}</dd></div>
               <div><dt>Date de naissance</dt><dd>{currentUser.dateNaissance}</dd></div>
+              {showHouseAdmin && (
+                <div>
+                  <dt>Administrateur</dt>
+                  <dd>{houseAdmin.prenom} {houseAdmin.nom} <span style={{ color: 'var(--color-text-muted)' }}>@{houseAdmin.login}</span></dd>
+                </div>
+              )}
               <div><dt>Connexions</dt><dd>{currentUser.connexions}</dd></div>
               <div><dt>Actions</dt><dd>{currentUser.actions}</dd></div>
             </dl>

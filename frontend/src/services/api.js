@@ -194,6 +194,13 @@ export const usersAPI = {
     return handleResponse(response);
   },
 
+  getHouseAdmin: async () => {
+    const response = await fetch(`${API_BASE_URL}/users/house-admin`, {
+      headers: getHeaders(true),
+    });
+    return handleResponse(response);
+  },
+
   // Récupère un utilisateur
   getOne: async (id) => {
     const response = await fetch(`${API_BASE_URL}/users/${id}`, {

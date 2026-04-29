@@ -36,6 +36,11 @@ function isFutureDate(dateValue) {
   return date > today;
 }
 
+function isAdult(dateValue) {
+  const age = calculateAge(dateValue);
+  return age !== null && age >= 18;
+}
+
 function toDbLevel(value = 'Débutant') {
   const normalized = value
     .toString()
@@ -61,6 +66,19 @@ function toDbStatus(value = 'approved') {
   return statuses[value] || 'Approuv\u00e9';
 }
 
+function toDbGenre(value) {
+  if (value === undefined) return undefined;
+  if (value === null || value === '') return '-';
+  const normalized = value
+    .toString()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+  if (normalized === 'f' || normalized === 'femme') return 'F';
+  if (normalized === 'h' || normalized === 'homme') return 'H';
+  return '-';
+}
+
 router.get('/members', authenticate, async (req, res) => {
   try {
     const { rows } = await pool.query(
@@ -75,6 +93,28 @@ router.get('/members', authenticate, async (req, res) => {
       [req.user.maisonId || null]
     );
     res.json(rows.map(mapUser));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erreur serveur.' });
+  }
+});
+
+router.get('/house-admin', authenticate, async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT users.id, pseudonyme, email, users.nom, prenom, age, genre, date_naissance, rolee, role_maison, maison_id,
+              niveau, points, photo, statut, connexions, actions, derniere_connexion,
+              maisons.nom AS maison_nom, maisons.code_acces
+       FROM users
+       LEFT JOIN maisons ON maisons.id = users.maison_id
+       WHERE users.maison_id = $1
+         AND users.rolee = 'admin'
+       ORDER BY users.id ASC
+       LIMIT 1`,
+      [req.user.maisonId]
+    );
+    if (!rows[0]) return res.status(404).json({ error: 'Administrateur introuvable pour cette maison.' });
+    res.json(mapUser(rows[0]));
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Erreur serveur.' });
@@ -153,7 +193,7 @@ router.post('/', async (req, res) => {
         nom,
         prenom,
         age,
-        genre ?? sexe ?? '-',
+        toDbGenre(genre ?? sexe),
         dateNaissance,
         finalRolee,
         role || 'autre',
@@ -204,10 +244,20 @@ router.get('/:id', async (req, res) => {
 });
 
 router.put('/:id', async (req, res) => {
-  const { login, nom, prenom, genre, sexe, niveau, statut, status, points, role, rolee, photo } = req.body;
+  const { login, nom, prenom, genre, sexe, niveau, statut, status, points, role, rolee, photo, password } = req.body;
   const dateNaissance = normalizeDateOnly(req.body.dateNaissance ?? req.body.date_naissance);
   if (isFutureDate(dateNaissance)) {
     return res.status(400).json({ error: 'La date de naissance ne peut pas etre dans le futur.' });
+  }
+  if (String(req.params.id) === String(req.user.id)) {
+    const currentUserResult = await pool.query('SELECT date_naissance FROM users WHERE id = $1', [req.user.id]);
+    const currentBirthDate = normalizeDateOnly(currentUserResult.rows[0]?.date_naissance);
+    if (!isAdult(currentBirthDate)) {
+      return res.status(403).json({ error: 'Vous devez avoir au moins 18 ans pour modifier votre profil.' });
+    }
+  }
+  if (String(req.params.id) === String(req.user.id) && dateNaissance !== undefined && !isAdult(dateNaissance)) {
+    return res.status(400).json({ error: 'La date de naissance doit correspondre a une personne majeure.' });
   }
   const age = dateNaissance !== undefined ? calculateAge(dateNaissance) : req.body.age;
   try {
@@ -223,7 +273,7 @@ router.put('/:id', async (req, res) => {
     if (nom !== undefined) addField('nom', nom);
     if (prenom !== undefined) addField('prenom', prenom);
     if (age !== undefined) addField('age', age);
-    if (genre !== undefined || sexe !== undefined) addField('genre', genre ?? sexe);
+    if (genre !== undefined || sexe !== undefined) addField('genre', toDbGenre(genre ?? sexe));
     if (dateNaissance !== undefined) addField('date_naissance', dateNaissance);
     if (photo !== undefined) addField('photo', photo);
     if (niveau !== undefined) addField('niveau', LEVEL_TO_DB[niveau] || niveau);
@@ -232,6 +282,11 @@ router.put('/:id', async (req, res) => {
     if (points !== undefined) addField('points', points);
     if (role !== undefined) addField('role_maison', role);
     if (rolee !== undefined && ['admin', 'habitant'].includes(rolee)) addField('rolee', rolee);
+    if (password) {
+      if (password.length < 8) return res.status(400).json({ error: 'Le mot de passe doit contenir au moins 8 caractères.' });
+      const passwordHash = await bcrypt.hash(password, 12);
+      addField('mot_de_passe', passwordHash);
+    }
 
     if (fields.length === 0) return res.status(400).json({ error: 'Aucun champ a modifier.' });
 

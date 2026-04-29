@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useDevices } from '../../context/DevicesContext';
-import { publicAPI } from '../../services/api';
+import { publicAPI, usersAPI } from '../../services/api';
 import './HomePage.css';
 
 const ALL = 'Tous';
@@ -297,11 +297,29 @@ function CatalogCard({ item }) {
 
 function ConnectedHome({ currentUser, users, devices, canAccess }) {
   const isAdmin = currentUser.appRole === 'admin';
+  const [houseAdmin, setHouseAdmin] = useState(
+    currentUser.houseAdmin || users.find(user => user.appRole === 'admin' && String(user.maisonId) === String(currentUser.maisonId)) || null
+  );
   const pendingUsers = users.filter(user => user.status === 'pending');
   const inactiveDevices = devices.filter(device => device.status === 'inactive');
   const lowBatteryDevices = devices.filter(device => device.battery !== null && device.battery !== undefined && device.battery < 25);
   const activeDevices = devices.filter(device => device.status === 'active');
   const totalEnergy = devices.reduce((sum, device) => sum + (device.energyConsumption > 0 ? device.energyConsumption : 0), 0).toFixed(1);
+
+  useEffect(() => {
+    if (isAdmin || houseAdmin) return;
+    let active = true;
+    usersAPI.getHouseAdmin()
+      .then(admin => {
+        if (active) setHouseAdmin(admin);
+      })
+      .catch(error => {
+        console.error('Erreur chargement administrateur maison:', error);
+      });
+    return () => {
+      active = false;
+    };
+  }, [isAdmin, houseAdmin]);
 
   return (
     <div className="home-page">
@@ -311,6 +329,13 @@ function ConnectedHome({ currentUser, users, devices, canAccess }) {
             <span className="badge badge-primary">{isAdmin ? 'Administrateur' : 'Habitant'}</span>
             <h1>Accueil de {currentUser.prenom}</h1>
             <p>{isAdmin ? `Vue de contrôle de ${currentUser.maisonNom || 'votre maison'}` : `Bienvenue dans ${currentUser.maisonNom || 'votre maison connectée'}`}</p>
+            {!isAdmin && houseAdmin && (
+              <p style={{ marginTop: '.5rem', color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center', gap: '.4rem', flexWrap: 'wrap' }}>
+                <Shield size={16} aria-hidden="true" />
+                Administrateur de la maison : <strong style={{ color: 'var(--color-text)' }}>{houseAdmin.prenom} {houseAdmin.nom}</strong>
+                <span>@{houseAdmin.login}</span>
+              </p>
+            )}
           </div>
           {isAdmin && currentUser.maisonCode && (
             <div className="access-code-box">

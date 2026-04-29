@@ -214,6 +214,7 @@ export function AuthProvider({ children }) {
         ...(data.points !== undefined ? { points: Number(data.points || 0) } : {}),
         ...(data.rolee ? { appRole: data.rolee } : {}),
       };
+      delete localPatch.password;
       setUsers(prev => prev.map(user => (
         String(user.id) === String(userId) ? { ...user, ...localPatch } : user
       )));
