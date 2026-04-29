@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { AlertTriangle, ArrowLeft, Download, Save, Trash2 } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Cpu, Download, Save, Settings, Trash2, Users, Wrench } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { LEVELS as LEVEL_DEFS } from '../../constants/smartHome';
 
@@ -113,6 +113,12 @@ export default function AdminSettings() {
 
       {saved && <div className="alert alert-success mb-3" role="status">Paramètres sauvegardés.</div>}
       {error && <div className="alert alert-error mb-3" role="alert">{error}</div>}
+      {config.maintenanceMode && (
+        <div className="alert alert-warning mb-3" role="status">
+          <AlertTriangle size={18} />
+          Mode maintenance actif pour cette maison : les habitants sont bloqués, les administrateurs peuvent intervenir.
+        </div>
+      )}
 
       <div className="grid grid-2" style={{ gap: '1.5rem' }}>
         <form onSubmit={handleSave} className="card">
@@ -150,12 +156,32 @@ export default function AdminSettings() {
               <input type="checkbox" name="maintenanceMode" checked={Boolean(config.maintenanceMode)} onChange={handleChange} />
               Mode maintenance
             </label>
+            <span className="form-hint">
+              Bloque la connexion et la consultation des habitants de cette maison. Les admins gardent l’accès pour corriger les objets, utilisateurs et paramètres.
+            </span>
           </div>
 
           <button type="submit" className="btn btn-primary"><Save size={15} /> Sauvegarder</button>
         </form>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          {config.maintenanceMode && (
+            <div className="card" style={{ borderColor: '#f97316', background: '#fff7ed' }}>
+              <h2 style={{ fontSize: '1rem', fontWeight: 800, marginBottom: '.75rem', color: '#9a3412' }}>
+                Centre d’intervention maintenance
+              </h2>
+              <p style={{ color: '#9a3412', fontSize: '.88rem', marginBottom: '1rem' }}>
+                Utilisez ces raccourcis pour remettre la maison en état avant de désactiver la maintenance.
+              </p>
+              <div className="flex gap-1" style={{ flexWrap: 'wrap' }}>
+                <Link to="/admin/objets" className="btn btn-outline btn-sm"><Cpu size={14} /> Objets</Link>
+                <Link to="/gestion" className="btn btn-outline btn-sm"><Wrench size={14} /> Gestion</Link>
+                <Link to="/admin/utilisateurs" className="btn btn-outline btn-sm"><Users size={14} /> Utilisateurs</Link>
+                <Link to="/admin/parametres" className="btn btn-outline btn-sm"><Settings size={14} /> Paramètres</Link>
+              </div>
+            </div>
+          )}
+
           <div className="card">
             <h2 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '1rem' }}>Exportation des données</h2>
             <div className="flex flex-col gap-2">

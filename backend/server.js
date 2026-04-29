@@ -8,6 +8,7 @@ import usersRoutes   from './routes/users.js';
 import devicesRoutes from './routes/devices.js';
 import publicRoutes  from './routes/public.js';
 import settingsRoutes from './routes/settings.js';
+import requestsRoutes from './routes/requests.js';
 
 dotenv.config();
 
@@ -27,6 +28,7 @@ app.use('/api/users',   usersRoutes);
 app.use('/api/devices', devicesRoutes);
 app.use('/api/public',  publicRoutes);
 app.use('/api/settings', settingsRoutes);
+app.use('/api/requests', requestsRoutes);
 
 // ─── Health check ─────────────────────────────────────────────────────────
 app.get('/api/health', (_req, res) => res.json({ status: 'ok', time: new Date() }));
@@ -37,22 +39,15 @@ app.use((_req, res) => res.status(404).json({ error: 'Route introuvable.' }));
 // ─── Démarrage ────────────────────────────────────────────────────────────
 await testConnection();
 
-// Fonction pour chercher un port libre
-function startServer(port) {
-  const server = app.listen(port, () => {
-    console.log(`🚀 Serveur démarré sur http://localhost:${port}`);
-  });
+const server = app.listen(parseInt(PORT, 10), () => {
+  console.log(`🚀 Serveur démarré sur http://localhost:${PORT}`);
+});
 
-  server.on('error', (err) => {
-    if (err.code === 'EADDRINUSE') {
-      console.warn(`⚠️  Port ${port} déjà utilisé, essai du port ${port + 1}...`);
-      server.close();
-      startServer(port + 1);
-    } else {
-      console.error('Erreur serveur:', err);
-      process.exit(1);
-    }
-  });
-}
-
-startServer(parseInt(PORT));
+server.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    console.error(`Port ${PORT} déjà utilisé. Arrête l'ancien serveur Node puis relance npm run dev.`);
+  } else {
+    console.error('Erreur serveur:', err);
+  }
+  process.exit(1);
+});

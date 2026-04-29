@@ -115,16 +115,24 @@ router.post('/login',
       if (user.statut !== 'Approuvé') {
         return res.status(403).json({ error: 'Votre compte n est pas encore actif.' });
       }
+      if (settings.maintenanceMode && user.rolee !== 'admin') {
+        return res.status(503).json({
+          error: "La maison est en maintenance. Merci d'attendre la fin de l'action de l'administrateur.",
+          maintenanceMode: true,
+        });
+      }
 
+      const isAdmin = user.rolee === 'admin';
       const newPoints = parseFloat((parseFloat(user.points) + settings.pointsConnexion).toFixed(2));
-      const newNiveau = computeLevel(newPoints);
+      const finalPoints = isAdmin ? Math.max(newPoints, LEVELS.Expert) : newPoints;
+      const newNiveau = isAdmin ? 'Expert' : computeLevel(finalPoints);
       const now = new Date();
 
       await pool.query(
         `UPDATE users
          SET points = $1, niveau = $2, connexions = connexions + 1, derniere_connexion = $3
          WHERE id = $4`,
-        [newPoints, newNiveau, now, user.id]
+        [finalPoints, newNiveau, now, user.id]
       );
 
       await pool.query(
@@ -135,7 +143,7 @@ router.post('/login',
       const payload = { id: user.id, login: user.pseudonyme, niveau: newNiveau, rolee: user.rolee, maisonId: user.maison_id };
       const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN || '7d' });
 
-      res.json({ token, user: mapUser({ ...user, points: newPoints, niveau: newNiveau }) });
+      res.json({ token, user: mapUser({ ...user, points: finalPoints, niveau: newNiveau }) });
     } catch (err) {
       console.error('Erreur login :', err);
       res.status(500).json({ error: 'Erreur serveur.' });
@@ -418,14 +426,16 @@ router.post('/log-action', authenticate, async (req, res) => {
     const { rows } = await pool.query('SELECT points, actions FROM users WHERE id = $1', [req.user.id]);
     if (!rows[0]) return res.status(404).json({ error: 'Utilisateur introuvable.' });
 
+    const isAdmin = req.user.rolee === 'admin';
     const newPoints = parseFloat((parseFloat(rows[0].points) + settings.pointsConsultation).toFixed(2));
-    const newNiveau = computeLevel(newPoints);
+    const finalPoints = isAdmin ? Math.max(newPoints, LEVELS.Expert) : newPoints;
+    const newNiveau = isAdmin ? 'Expert' : computeLevel(finalPoints);
 
     await pool.query(
       'UPDATE users SET actions = actions + 1, points = $1, niveau = $2 WHERE id = $3',
-      [newPoints, newNiveau, req.user.id]
+      [finalPoints, newNiveau, req.user.id]
     );
-    res.json({ points: newPoints, niveau: newNiveau, actions: Number(rows[0].actions || 0) + 1 });
+    res.json({ points: finalPoints, niveau: newNiveau, actions: Number(rows[0].actions || 0) + 1 });
   } catch (err) {
     res.status(500).json({ error: 'Erreur serveur.' });
   }

@@ -28,6 +28,10 @@ export const DEVICE_TYPES = [
   'Prise',
   'Électroménager',
   'Énergie',
+  'Télévision',
+  'Plaque de cuisson',
+  'Sèche-serviette',
+  'Cafetière',
 ];
 
 export function formatDateTime(value) {

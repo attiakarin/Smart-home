@@ -22,7 +22,9 @@ const getHeaders = (includeAuth = true) => {
 const handleResponse = async (response) => {
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error || `Erreur HTTP ${response.status}`);
+    const error = new Error(errorData.error || `Erreur HTTP ${response.status}`);
+    Object.assign(error, errorData, { status: response.status });
+    throw error;
   }
   return response.json();
 };
@@ -201,6 +203,13 @@ export const usersAPI = {
     return handleResponse(response);
   },
 
+  getHouseAdmins: async () => {
+    const response = await fetch(`${API_BASE_URL}/users/house-admins`, {
+      headers: getHeaders(true),
+    });
+    return handleResponse(response);
+  },
+
   // Récupère un utilisateur
   getOne: async (id) => {
     const response = await fetch(`${API_BASE_URL}/users/${id}`, {
@@ -252,6 +261,48 @@ export const settingsAPI = {
       method: 'PUT',
       headers: getHeaders(true),
       body: JSON.stringify(settings),
+    });
+    return handleResponse(response);
+  },
+};
+
+export const requestsAPI = {
+  getAll: async () => {
+    const response = await fetch(`${API_BASE_URL}/requests`, {
+      headers: getHeaders(true),
+    });
+    return handleResponse(response);
+  },
+
+  getMine: async () => {
+    const response = await fetch(`${API_BASE_URL}/requests/mine`, {
+      headers: getHeaders(true),
+    });
+    return handleResponse(response);
+  },
+
+  markRepliesRead: async () => {
+    const response = await fetch(`${API_BASE_URL}/requests/mine/read-replies`, {
+      method: 'POST',
+      headers: getHeaders(true),
+    });
+    return handleResponse(response);
+  },
+
+  create: async (requestData) => {
+    const response = await fetch(`${API_BASE_URL}/requests`, {
+      method: 'POST',
+      headers: getHeaders(true),
+      body: JSON.stringify(requestData),
+    });
+    return handleResponse(response);
+  },
+
+  update: async (id, requestData) => {
+    const response = await fetch(`${API_BASE_URL}/requests/${id}`, {
+      method: 'PATCH',
+      headers: getHeaders(true),
+      body: JSON.stringify(requestData),
     });
     return handleResponse(response);
   },

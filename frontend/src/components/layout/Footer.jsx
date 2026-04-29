@@ -1,8 +1,11 @@
 import { Link } from 'react-router-dom';
 import { Home } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 
 export default function Footer() {
+  const { currentUser } = useAuth();
   const year = new Date().getFullYear();
+
   return (
     <footer className="site-footer" role="contentinfo">
       <div className="container site-footer__inner">
@@ -13,7 +16,7 @@ export default function Footer() {
         <nav aria-label="Liens du pied de page">
           <ul className="footer-links" role="list">
             <li><Link to="/">Accueil</Link></li>
-            <li><Link to="/inscription">Inscription</Link></li>
+            {!currentUser && <li><Link to="/inscription">Inscription</Link></li>}
           </ul>
         </nav>
         <p className="footer-copy">© {year} Ma Maison Connectée — Projet ING1</p>

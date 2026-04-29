@@ -45,6 +45,16 @@ body {
   min-height: 100vh;
 }
 
+body.maintenance-mode {
+  --color-bg: #fff7ed;
+  --color-bg-card: #fffbeb;
+  --color-border: #fed7aa;
+  --color-primary: #d97706;
+  --color-primary-dark: #92400e;
+  --color-hero-from: #ffedd5;
+  --color-hero-to: #fef3c7;
+}
+
 img { max-width: 100%; display: block; }
 a { color: inherit; text-decoration: none; }
 button { cursor: pointer; font-family: inherit; }
@@ -218,6 +228,152 @@ input, select, textarea { font-family: inherit; }
   font-size: 1.2rem;
 }
 
+.maintenance-banner {
+  background: #7c2d12;
+  color: #ffedd5;
+  border-bottom: 3px solid #f97316;
+  box-shadow: var(--shadow-md);
+}
+
+.maintenance-banner__inner {
+  min-height: 72px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-block: .85rem;
+}
+
+.maintenance-banner__text {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+}
+
+.maintenance-banner__text strong,
+.maintenance-banner__text span {
+  display: block;
+}
+
+.maintenance-banner__text span {
+  color: #fed7aa;
+  font-size: .88rem;
+}
+
+.maintenance-banner__actions {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.maintenance-banner__link {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  border: 1px solid rgba(255, 237, 213, .35);
+  background: rgba(255, 237, 213, .1);
+  color: #fff7ed;
+  border-radius: var(--radius-sm);
+  padding: .35rem .65rem;
+  font-size: .82rem;
+  font-weight: 700;
+}
+
+.maintenance-banner__link:hover {
+  background: rgba(255, 237, 213, .18);
+}
+
+.admin-devices-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.admin-devices-header h1 {
+  font-size: 1.4rem;
+  font-weight: 800;
+}
+
+.admin-devices-header p {
+  color: var(--color-text-muted);
+  margin-top: .25rem;
+}
+
+.maintenance-panel {
+  border: 1px solid #fdba74;
+  background: linear-gradient(135deg, #fff7ed, #ffedd5);
+  border-radius: var(--radius-md);
+  padding: 1.25rem;
+  box-shadow: var(--shadow-sm);
+}
+
+.maintenance-panel__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.maintenance-panel__header h2 {
+  margin-top: .35rem;
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #7c2d12;
+}
+
+.maintenance-panel__count {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  border-radius: var(--radius-sm);
+  padding: .35rem .75rem;
+  background: #7c2d12;
+  color: #fff7ed;
+  font-size: .85rem;
+  font-weight: 800;
+}
+
+.maintenance-stat {
+  min-height: 118px;
+  border: 1px solid #fed7aa;
+  border-radius: var(--radius-sm);
+  background: rgba(255,255,255,.72);
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: .25rem;
+}
+
+.maintenance-stat span {
+  color: #c2410c;
+}
+
+.maintenance-stat strong {
+  font-size: 1.5rem;
+  line-height: 1.2;
+  color: #7c2d12;
+}
+
+.maintenance-stat small {
+  color: #9a3412;
+  font-weight: 700;
+}
+
+.maintenance-issues {
+  display: flex;
+  align-items: center;
+  gap: .35rem;
+  flex-wrap: wrap;
+}
+
 .password-eye {
   position: absolute;
   right: .75rem;
@@ -225,6 +381,40 @@ input, select, textarea { font-family: inherit; }
   background: none;
   border: none;
   color: var(--color-text-muted);
+}
+
+.device-photo-editor {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.device-photo-preview {
+  width: 96px;
+  height: 96px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: #f8fafc;
+  color: var(--color-primary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.device-photo-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.device-photo-actions {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  flex-wrap: wrap;
 }
 
 /* ============================================================

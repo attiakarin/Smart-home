@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { authAPI, devicesAPI, settingsAPI, usersAPI } from '../services/api';
+import { authAPI, devicesAPI, requestsAPI, settingsAPI, usersAPI } from '../services/api';
 
 const AuthContext = createContext(null);
 
@@ -75,6 +75,8 @@ export function AuthProvider({ children }) {
     return saved ? normalizeUser(JSON.parse(saved)) : null;
   });
   const [devices, setDevices] = useState([]);
+  const [adminRequests, setAdminRequests] = useState([]);
+  const [residentRequests, setResidentRequests] = useState([]);
   const [loading, setLoading] = useState(false);
   const [settings, setSettings] = useState(() => {
     const saved = localStorage.getItem('sh_settings');
@@ -85,8 +87,10 @@ export function AuthProvider({ children }) {
     localStorage.setItem('sh_settings', JSON.stringify(settings));
     if (isAdminUser(currentUser)) {
       applyThemeColor(settings.themeColor);
+      document.body.classList.toggle('maintenance-mode', Boolean(settings.maintenanceMode));
     } else {
       resetThemeColor();
+      document.body.classList.remove('maintenance-mode');
     }
   }, [settings, currentUser]);
 
@@ -128,13 +132,39 @@ export function AuthProvider({ children }) {
         const data = await devicesAPI.getAll();
         setDevices(data);
       } catch (err) {
+        if (err.maintenanceMode) {
+          authAPI.logout();
+          setCurrentUser(null);
+          setDevices([]);
+          setUsers([]);
+          setAdminRequests([]);
+          setResidentRequests([]);
+          return;
+        }
         console.error('Erreur chargement appareils:', err);
       }
       try {
         const isAdmin = currentUser.niveau === 'Expert' && currentUser.appRole === 'admin';
         const data = isAdmin ? await usersAPI.getAll() : await usersAPI.getMembers();
         setUsers(data.map(normalizeUser));
+        if (isAdmin) {
+          const requests = await requestsAPI.getAll();
+          setAdminRequests(requests);
+          setResidentRequests([]);
+        } else {
+          setAdminRequests([]);
+          const requests = await requestsAPI.getMine();
+          setResidentRequests(requests);
+        }
       } catch (err) {
+        if (err.maintenanceMode) {
+          authAPI.logout();
+          setCurrentUser(null);
+          setUsers([]);
+          setAdminRequests([]);
+          setResidentRequests([]);
+          return;
+        }
         console.error('Erreur chargement utilisateurs:', err);
       }
     };
@@ -165,6 +195,9 @@ export function AuthProvider({ children }) {
     authAPI.logout();
     setCurrentUser(null);
     setDevices([]);
+    setAdminRequests([]);
+    setResidentRequests([]);
+    document.body.classList.remove('maintenance-mode');
     resetThemeColor();
   }, []);
 
@@ -257,8 +290,40 @@ export function AuthProvider({ children }) {
     setCurrentUser(null);
     setUsers([]);
     setDevices([]);
+    setAdminRequests([]);
+    setResidentRequests([]);
+    document.body.classList.remove('maintenance-mode');
     resetThemeColor();
   }, []);
+
+  const refreshAdminRequests = useCallback(async () => {
+    if (!isAdminUser(currentUser)) {
+      setAdminRequests([]);
+      return [];
+    }
+    const requests = await requestsAPI.getAll();
+    setAdminRequests(requests);
+    return requests;
+  }, [currentUser]);
+
+  const pendingAdminRequests = adminRequests.filter(request => request.status === 'nouvelle').length;
+  const unreadResidentReplies = residentRequests.filter(request => request.adminReply && !request.replyRead).length;
+
+  const refreshResidentRequests = useCallback(async () => {
+    if (!currentUser || isAdminUser(currentUser)) {
+      setResidentRequests([]);
+      return [];
+    }
+    const requests = await requestsAPI.getMine();
+    setResidentRequests(requests);
+    return requests;
+  }, [currentUser]);
+
+  const markResidentRepliesRead = useCallback(async () => {
+    if (!currentUser || isAdminUser(currentUser)) return;
+    await requestsAPI.markRepliesRead();
+    setResidentRequests(previous => previous.map(request => ({ ...request, replyRead: true })));
+  }, [currentUser]);
 
   const logAction = useCallback(async () => {
     if (!currentUser) return;
@@ -304,6 +369,10 @@ export function AuthProvider({ children }) {
       users, setUsers,
       currentUser, setCurrentUser,
       devices, setDevices,
+      adminRequests, setAdminRequests,
+      pendingAdminRequests, refreshAdminRequests,
+      residentRequests, setResidentRequests,
+      unreadResidentReplies, refreshResidentRequests, markResidentRepliesRead,
       login, logout, register,
       createHouse,
       updateUser, deleteUser, createUser,

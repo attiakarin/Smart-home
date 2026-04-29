@@ -19,6 +19,7 @@ const pool = new Pool({
 export async function testConnection() {
   try {
     await pool.query('SELECT NOW()');
+    await pool.query('ALTER TABLE objets ADD COLUMN IF NOT EXISTS photo TEXT');
     console.log('PostgreSQL/Supabase connecte avec succes');
   } catch (err) {
     console.error('Erreur connexion PostgreSQL/Supabase :', err.message);

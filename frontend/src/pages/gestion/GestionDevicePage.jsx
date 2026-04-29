@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useDevices } from '../../context/DevicesContext';
 import { useAuth } from '../../context/AuthContext';
-import { ArrowLeft, Save, SlidersHorizontal } from 'lucide-react';
+import { ArrowLeft, Camera, Save, SlidersHorizontal, Trash2 } from 'lucide-react';
 
 const TYPE_SETTINGS = {
   thermostat: [
@@ -101,6 +101,25 @@ export default function GestionDevicePage() {
     }));
   };
 
+  const handlePhotoChange = (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    setError('');
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      setError('Veuillez choisir une image.');
+      return;
+    }
+    if (file.size > 750 * 1024) {
+      setError('La photo doit faire moins de 750 Ko.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => setForm(previous => ({ ...previous, photo: reader.result }));
+    reader.readAsDataURL(file);
+  };
+
   const handleSave = async (event) => {
     event.preventDefault();
     setError('');
@@ -121,6 +140,7 @@ export default function GestionDevicePage() {
         battery: form.battery === '' ? null : Number(form.battery),
         energyConsumption: Number(form.energyConsumption || 0),
         description: form.description,
+        photo: form.photo || null,
         settings: form.settings || {},
       });
       setSaved(true);
@@ -202,6 +222,25 @@ export default function GestionDevicePage() {
               <div className="form-group" style={{ gridColumn: '1/-1' }}>
                 <label className="form-label" htmlFor="gd-desc">Description</label>
                 <textarea id="gd-desc" name="description" rows={3} className="form-textarea" value={form.description || ''} onChange={handleChange} />
+              </div>
+              <div className="form-group" style={{ gridColumn: '1/-1' }}>
+                <span className="form-label">Photo de l'objet</span>
+                <div className="device-photo-editor">
+                  <div className="device-photo-preview">
+                    {form.photo ? <img src={form.photo} alt="Apercu de l'objet" /> : <Camera size={24} aria-hidden="true" />}
+                  </div>
+                  <div className="device-photo-actions">
+                    <label className="btn btn-outline btn-sm" htmlFor="gd-photo">
+                      <Camera size={14} aria-hidden="true" /> Choisir une photo
+                    </label>
+                    <input id="gd-photo" type="file" accept="image/*" onChange={handlePhotoChange} hidden />
+                    {form.photo && (
+                      <button type="button" className="btn btn-ghost btn-sm" onClick={() => setForm(previous => ({ ...previous, photo: null }))}>
+                        <Trash2 size={14} aria-hidden="true" /> Retirer
+                      </button>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
           </div>

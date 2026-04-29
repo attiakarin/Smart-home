@@ -46,11 +46,12 @@ export default function AdminUsers() {
 
   const saveEdit = async (id) => {
     try {
+      const nextNiveau = editForm.rolee === 'admin' ? 'Expert' : editForm.niveau;
       await updateUser(id, {
-        niveau: editForm.rolee === 'admin' ? 'Expert' : editForm.niveau,
+        niveau: nextNiveau,
         role: editForm.role,
         rolee: editForm.rolee,
-        points: parseFloat(editForm.points) || 0,
+        points: levelPoints[nextNiveau] ?? 0,
         status: editForm.status,
       });
       setEditId(null);
@@ -206,7 +207,11 @@ export default function AdminUsers() {
                 <td>
                   {editId === u.id ? (
                     <select className="form-select" style={{ padding: '.2rem .5rem', fontSize: '.85rem' }}
-                      value={editForm.niveau} onChange={e => setEditForm(f => ({ ...f, niveau: e.target.value }))}>
+                      value={editForm.niveau} onChange={e => setEditForm(f => ({
+                        ...f,
+                        niveau: e.target.value,
+                        points: levelPoints[e.target.value] ?? 0,
+                      }))}>
                       {levelOptions.map(l => <option key={l}>{l}</option>)}
                     </select>
                   ) : (
@@ -220,6 +225,7 @@ export default function AdminUsers() {
                         ...f,
                         rolee: e.target.value,
                         niveau: e.target.value === 'admin' ? 'Expert' : f.niveau,
+                        points: e.target.value === 'admin' ? levelPoints.Expert : (levelPoints[f.niveau] ?? f.points),
                       }))}>
                       {appRoles.map(role => <option key={role.value} value={role.value}>{role.label}</option>)}
                     </select>

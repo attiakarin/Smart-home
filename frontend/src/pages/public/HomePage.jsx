@@ -17,6 +17,7 @@ import {
   User,
   Wifi,
   Wrench,
+  X,
   Zap,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
@@ -32,18 +33,36 @@ const GUIDE_CARDS = [
     theme: 'confort',
     level: 'Débutant',
     text: 'Découvrez comment les objets, services et profils habitants fonctionnent ensemble.',
+    details: [
+      'Une maison connectée regroupe des objets comme les thermostats, capteurs, lampes, prises ou caméras.',
+      'Chaque objet remonte un état dans le tableau de bord: actif, inactif, batterie, connexion ou consommation.',
+      'Les habitants consultent les informations selon leur niveau, tandis que l’administrateur valide les accès et supervise la maison.',
+    ],
+    steps: ['Explorer le catalogue', 'Créer ou rejoindre une maison', 'Suivre les objets depuis le tableau de bord'],
   },
   {
     title: 'Optimiser sa consommation',
     theme: 'énergie',
     level: 'Intermédiaire',
     text: 'Repérez les équipements énergivores et suivez les bons indicateurs avant d’automatiser.',
+    details: [
+      'Commencez par comparer la consommation des objets qui restent actifs longtemps.',
+      'Surveillez les batteries faibles et les appareils inactifs pour éviter les mesures incorrectes.',
+      'Une fois les usages compris, vous pouvez ajuster les horaires, les seuils et les services associés.',
+    ],
+    steps: ['Identifier les appareils gourmands', 'Vérifier les alertes', 'Adapter les usages progressivement'],
   },
   {
     title: 'Sécuriser les accès',
     theme: 'sécurité',
     level: 'Avancé',
     text: 'Combinez caméras, capteurs et validations admin pour maîtriser les accès à la maison.',
+    details: [
+      'La sécurité combine les objets physiques, les comptes utilisateurs et les droits d’accès.',
+      'L’administrateur garde la main sur les demandes en attente et les niveaux de chaque habitant.',
+      'Les caméras, capteurs d’ouverture et alertes permettent de repérer rapidement une situation inhabituelle.',
+    ],
+    steps: ['Valider uniquement les membres connus', 'Contrôler les niveaux d’accès', 'Consulter les alertes régulièrement'],
   },
 ];
 
@@ -71,6 +90,18 @@ function PublicHome() {
   const [connectivity, setConnectivity] = useState(ALL);
   const [serviceCategory, setServiceCategory] = useState(ALL);
   const [showFilters, setShowFilters] = useState(false);
+  const [activeGuide, setActiveGuide] = useState(null);
+
+  useEffect(() => {
+    if (!activeGuide) return undefined;
+
+    const handleKeyDown = event => {
+      if (event.key === 'Escape') setActiveGuide(null);
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [activeGuide]);
 
   useEffect(() => {
     const loadPublicData = async () => {
@@ -242,14 +273,25 @@ function PublicHome() {
         <h2 id="guides-title" className="section-divider">Guides pour commencer</h2>
         <div className="grid grid-3">
           {GUIDE_CARDS.map(guide => (
-            <article key={guide.title} className="card">
+            <button
+              type="button"
+              key={guide.title}
+              className="card guide-card"
+              onClick={() => setActiveGuide(guide)}
+              aria-label={`Ouvrir le guide ${guide.title}`}
+            >
               <span className="badge badge-warning"><BookOpen size={12} aria-hidden="true" /> {guide.level}</span>
               <h3 style={{ fontSize: '1rem', fontWeight: 800, margin: '.75rem 0 .35rem' }}>{guide.title}</h3>
               <p style={{ color: 'var(--color-text-muted)', fontSize: '.88rem' }}>{guide.text}</p>
-            </article>
+              <span className="guide-card__hint">Lire le guide</span>
+            </button>
           ))}
         </div>
       </section>
+
+      {activeGuide && (
+        <GuideModal guide={activeGuide} onClose={() => setActiveGuide(null)} />
+      )}
 
       <section className="cta-section container" aria-labelledby="cta-title">
         <p id="cta-title">Prêt à configurer votre propre maison connectée ?</p>
@@ -259,6 +301,47 @@ function PublicHome() {
             Demander l’accès <ArrowRight size={16} aria-hidden="true" />
           </Link>
         </div>
+      </section>
+    </div>
+  );
+}
+
+function GuideModal({ guide, onClose }) {
+  return (
+    <div className="modal-overlay guide-modal-overlay" role="presentation" onMouseDown={onClose}>
+      <section
+        className="modal guide-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="guide-modal-title"
+        onMouseDown={event => event.stopPropagation()}
+      >
+        <header className="modal-header">
+          <div>
+            <span className="badge badge-warning"><BookOpen size={12} aria-hidden="true" /> {guide.level}</span>
+            <h2 id="guide-modal-title">{guide.title}</h2>
+          </div>
+          <button type="button" className="guide-modal__close" onClick={onClose} aria-label="Fermer le guide">
+            <X size={20} aria-hidden="true" />
+          </button>
+        </header>
+        <div className="modal-body guide-modal__body">
+          <p className="guide-modal__intro">{guide.text}</p>
+          <div className="guide-modal__details">
+            {guide.details.map(detail => <p key={detail}>{detail}</p>)}
+          </div>
+          <div className="guide-modal__steps" aria-label="Étapes conseillées">
+            {guide.steps.map((step, index) => (
+              <div key={step} className="guide-modal__step">
+                <span>{index + 1}</span>
+                <strong>{step}</strong>
+              </div>
+            ))}
+          </div>
+        </div>
+        <footer className="modal-footer">
+          <button type="button" className="btn btn-primary" onClick={onClose}>Compris</button>
+        </footer>
       </section>
     </div>
   );
@@ -278,7 +361,13 @@ function FilterSelect({ label, value, onChange, options }) {
 function CatalogCard({ item }) {
   return (
     <article className="catalog-card" role="listitem">
-      <div className="catalog-card__icon"><Cpu size={22} aria-hidden="true" /></div>
+      <div className="catalog-card__media">
+        {item.photo ? (
+          <img src={item.photo} alt={`Photo de ${item.name}`} />
+        ) : (
+          <div className="catalog-card__icon"><Cpu size={22} aria-hidden="true" /></div>
+        )}
+      </div>
       <div className="catalog-card__body">
         <div className="flex gap-2 mb-2" style={{ flexWrap: 'wrap' }}>
           <span className="badge badge-primary">{item.feature}</span>
@@ -297,8 +386,12 @@ function CatalogCard({ item }) {
 
 function ConnectedHome({ currentUser, users, devices, canAccess }) {
   const isAdmin = currentUser.appRole === 'admin';
-  const [houseAdmin, setHouseAdmin] = useState(
-    currentUser.houseAdmin || users.find(user => user.appRole === 'admin' && String(user.maisonId) === String(currentUser.maisonId)) || null
+  const localHouseAdmins = useMemo(
+    () => users.filter(user => user.appRole === 'admin' && String(user.maisonId) === String(currentUser.maisonId)),
+    [users, currentUser.maisonId]
+  );
+  const [houseAdmins, setHouseAdmins] = useState(
+    localHouseAdmins.length > 0 ? localHouseAdmins : currentUser.houseAdmin ? [currentUser.houseAdmin] : []
   );
   const pendingUsers = users.filter(user => user.status === 'pending');
   const inactiveDevices = devices.filter(device => device.status === 'inactive');
@@ -307,19 +400,23 @@ function ConnectedHome({ currentUser, users, devices, canAccess }) {
   const totalEnergy = devices.reduce((sum, device) => sum + (device.energyConsumption > 0 ? device.energyConsumption : 0), 0).toFixed(1);
 
   useEffect(() => {
-    if (isAdmin || houseAdmin) return;
+    if (localHouseAdmins.length > 0) {
+      setHouseAdmins(localHouseAdmins);
+      return;
+    }
+    if (isAdmin || houseAdmins.length > 0) return;
     let active = true;
-    usersAPI.getHouseAdmin()
-      .then(admin => {
-        if (active) setHouseAdmin(admin);
+    usersAPI.getHouseAdmins()
+      .then(admins => {
+        if (active) setHouseAdmins(admins);
       })
       .catch(error => {
-        console.error('Erreur chargement administrateur maison:', error);
+        console.error('Erreur chargement administrateurs maison:', error);
       });
     return () => {
       active = false;
     };
-  }, [isAdmin, houseAdmin]);
+  }, [isAdmin, houseAdmins.length, localHouseAdmins]);
 
   return (
     <div className="home-page">
@@ -329,11 +426,16 @@ function ConnectedHome({ currentUser, users, devices, canAccess }) {
             <span className="badge badge-primary">{isAdmin ? 'Administrateur' : 'Habitant'}</span>
             <h1>Accueil de {currentUser.prenom}</h1>
             <p>{isAdmin ? `Vue de contrôle de ${currentUser.maisonNom || 'votre maison'}` : `Bienvenue dans ${currentUser.maisonNom || 'votre maison connectée'}`}</p>
-            {!isAdmin && houseAdmin && (
+            {!isAdmin && houseAdmins.length > 0 && (
               <p style={{ marginTop: '.5rem', color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center', gap: '.4rem', flexWrap: 'wrap' }}>
                 <Shield size={16} aria-hidden="true" />
-                Administrateur de la maison : <strong style={{ color: 'var(--color-text)' }}>{houseAdmin.prenom} {houseAdmin.nom}</strong>
-                <span>@{houseAdmin.login}</span>
+                Administrateur{houseAdmins.length > 1 ? 's' : ''} de la maison :
+                {houseAdmins.map((admin, index) => (
+                  <span key={admin.id || admin.login}>
+                    <strong style={{ color: 'var(--color-text)' }}>{admin.prenom} {admin.nom}</strong>
+                    <span> @{admin.login}</span>{index < houseAdmins.length - 1 ? ',' : ''}
+                  </span>
+                ))}
               </p>
             )}
           </div>

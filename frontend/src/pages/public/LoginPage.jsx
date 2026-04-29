@@ -11,6 +11,10 @@ export default function LoginPage() {
   const [error, setError]   = useState('');
 
   const handleChange = e => setForm(f => ({ ...f, [e.target.name]: e.target.value }));
+  const fillTestAccount = () => {
+    setForm({ login: 'admin_martin', password: 'Admin2026!' });
+    setError('');
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -46,6 +50,9 @@ export default function LoginPage() {
               <li><strong>lea_martin</strong> / Lea2026! — Intermédiaire</li>
               <li><strong>tom_m</strong> / Tom2026! — Débutant</li>
             </ul>
+            <button type="button" className="btn btn-outline btn-sm mt-2" onClick={fillTestAccount}>
+              Utiliser le compte test
+            </button>
           </details>
 
           <form onSubmit={handleSubmit} noValidate aria-label="Formulaire de connexion">

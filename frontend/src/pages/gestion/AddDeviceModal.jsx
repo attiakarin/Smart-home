@@ -1,17 +1,36 @@
 import { useState } from 'react';
 import { useDevices } from '../../context/DevicesContext';
-import { X } from 'lucide-react';
+import { Camera, Trash2, X } from 'lucide-react';
 
 export default function AddDeviceModal({ onClose }) {
   const { addDevice, deviceTypes, rooms } = useDevices();
   const [form, setForm] = useState({
     name: '', type: deviceTypes[0] || '', brand: '', room: rooms[0] || '',
     connectivity: 'Wi-Fi', signal: 'Fort', description: '', energyConsumption: '',
-    battery: '', status: 'active',
+    battery: '', status: 'active', photo: null,
   });
   const [error, setError] = useState('');
 
   const handleChange = e => setForm(f => ({ ...f, [e.target.name]: e.target.value }));
+
+  const handlePhotoChange = (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    setError('');
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      setError('Veuillez choisir une image.');
+      return;
+    }
+    if (file.size > 750 * 1024) {
+      setError('La photo doit faire moins de 750 Ko.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => setForm(previous => ({ ...previous, photo: reader.result }));
+    reader.readAsDataURL(file);
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -82,6 +101,25 @@ export default function AddDeviceModal({ onClose }) {
               <div className="form-group" style={{ gridColumn: '1/-1' }}>
                 <label className="form-label" htmlFor="ad-desc">Description</label>
                 <textarea id="ad-desc" name="description" className="form-textarea" rows={2} value={form.description} onChange={handleChange} />
+              </div>
+              <div className="form-group" style={{ gridColumn: '1/-1' }}>
+                <span className="form-label">Photo de l'objet</span>
+                <div className="device-photo-editor">
+                  <div className="device-photo-preview">
+                    {form.photo ? <img src={form.photo} alt="Apercu de l'objet" /> : <Camera size={24} aria-hidden="true" />}
+                  </div>
+                  <div className="device-photo-actions">
+                    <label className="btn btn-outline btn-sm" htmlFor="ad-photo">
+                      <Camera size={14} aria-hidden="true" /> Choisir une photo
+                    </label>
+                    <input id="ad-photo" type="file" accept="image/*" onChange={handlePhotoChange} hidden />
+                    {form.photo && (
+                      <button type="button" className="btn btn-ghost btn-sm" onClick={() => setForm(previous => ({ ...previous, photo: null }))}>
+                        <Trash2 size={14} aria-hidden="true" /> Retirer
+                      </button>
+                    )}
+                  </div>
+                </div>
               </div>
               <div className="form-group">
                 <label className="form-label" htmlFor="ad-status">État initial</label>

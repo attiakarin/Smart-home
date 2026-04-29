@@ -44,8 +44,8 @@ export default function ProfilePage() {
   const maxBirthDate = getAdultMaxBirthDate();
   const age = calculateAge(currentUser.dateNaissance);
   const canEditProfile = age === null || age >= 18;
-  const houseAdmin = users.find(user => user.appRole === 'admin' && String(user.maisonId) === String(currentUser.maisonId));
-  const showHouseAdmin = currentUser.appRole !== 'admin' && houseAdmin;
+  const houseAdmins = users.filter(user => user.appRole === 'admin' && String(user.maisonId) === String(currentUser.maisonId));
+  const showHouseAdmins = currentUser.appRole !== 'admin' && houseAdmins.length > 0;
 
   const levelColors = LEVEL_COLORS;
   const nextLevels  = { débutant: 'Intermédiaire', intermédiaire: 'Avancé', avancé: 'Expert', expert: null };
@@ -179,10 +179,17 @@ export default function ProfilePage() {
               <div><dt>Âge</dt><dd>{currentUser.age} ans</dd></div>
               <div><dt>Sexe</dt><dd>{currentUser.sexe}</dd></div>
               <div><dt>Date de naissance</dt><dd>{currentUser.dateNaissance}</dd></div>
-              {showHouseAdmin && (
+              {showHouseAdmins && (
                 <div>
-                  <dt>Administrateur</dt>
-                  <dd>{houseAdmin.prenom} {houseAdmin.nom} <span style={{ color: 'var(--color-text-muted)' }}>@{houseAdmin.login}</span></dd>
+                  <dt>Administrateur{houseAdmins.length > 1 ? 's' : ''}</dt>
+                  <dd>
+                    {houseAdmins.map((admin, index) => (
+                      <span key={admin.id}>
+                        {admin.prenom} {admin.nom} <span style={{ color: 'var(--color-text-muted)' }}>@{admin.login}</span>
+                        {index < houseAdmins.length - 1 ? ', ' : ''}
+                      </span>
+                    ))}
+                  </dd>
                 </div>
               )}
               <div><dt>Connexions</dt><dd>{currentUser.connexions}</dd></div>

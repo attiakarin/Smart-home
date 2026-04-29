@@ -56,6 +56,13 @@ function toDbLevel(value = 'Débutant') {
   return levels[normalized] || 'D\u00e9butant';
 }
 
+const LEVEL_MIN_POINTS = {
+  'D\u00e9butant': 0,
+  'Interm\u00e9diaire': 5,
+  'Avanc\u00e9': 15,
+  Expert: 30,
+};
+
 function toDbStatus(value = 'approved') {
   const statuses = {
     pending: 'Attente',
@@ -115,6 +122,27 @@ router.get('/house-admin', authenticate, async (req, res) => {
     );
     if (!rows[0]) return res.status(404).json({ error: 'Administrateur introuvable pour cette maison.' });
     res.json(mapUser(rows[0]));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erreur serveur.' });
+  }
+});
+
+router.get('/house-admins', authenticate, async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT users.id, pseudonyme, email, users.nom, prenom, age, genre, date_naissance, rolee, role_maison, maison_id,
+              niveau, points, photo, statut, connexions, actions, derniere_connexion,
+              maisons.nom AS maison_nom, maisons.code_acces
+       FROM users
+       LEFT JOIN maisons ON maisons.id = users.maison_id
+       WHERE users.maison_id = $1
+         AND users.rolee = 'admin'
+         AND users.statut = 'Approuvé'
+       ORDER BY users.id ASC`,
+      [req.user.maisonId]
+    );
+    res.json(rows.map(mapUser));
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Erreur serveur.' });
@@ -276,12 +304,23 @@ router.put('/:id', async (req, res) => {
     if (genre !== undefined || sexe !== undefined) addField('genre', toDbGenre(genre ?? sexe));
     if (dateNaissance !== undefined) addField('date_naissance', dateNaissance);
     if (photo !== undefined) addField('photo', photo);
-    if (niveau !== undefined) addField('niveau', LEVEL_TO_DB[niveau] || niveau);
+    const nextRolee = rolee !== undefined && ['admin', 'habitant'].includes(rolee) ? rolee : undefined;
+    const nextNiveau = nextRolee === 'admin' ? 'Expert' : niveau;
+    const dbNiveau = nextNiveau !== undefined ? (LEVEL_TO_DB[nextNiveau] || toDbLevel(nextNiveau)) : undefined;
+    const nextPoints = nextRolee === 'admin'
+      ? Math.max(Number(points || 0), LEVEL_MIN_POINTS.Expert)
+      : points !== undefined
+        ? points
+        : dbNiveau !== undefined
+          ? LEVEL_MIN_POINTS[dbNiveau]
+          : undefined;
+
+    if (dbNiveau !== undefined) addField('niveau', dbNiveau);
     const nextStatut = statut ?? (status ? STATUS_TO_DB[status] : undefined);
     if (nextStatut !== undefined) addField('statut', nextStatut);
-    if (points !== undefined) addField('points', points);
+    if (nextPoints !== undefined) addField('points', nextPoints);
     if (role !== undefined) addField('role_maison', role);
-    if (rolee !== undefined && ['admin', 'habitant'].includes(rolee)) addField('rolee', rolee);
+    if (nextRolee !== undefined) addField('rolee', nextRolee);
     if (password) {
       if (password.length < 8) return res.status(400).json({ error: 'Le mot de passe doit contenir au moins 8 caractères.' });
       const passwordHash = await bcrypt.hash(password, 12);

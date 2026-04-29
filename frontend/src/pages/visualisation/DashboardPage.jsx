@@ -1,7 +1,7 @@
 import { useAuth } from '../../context/AuthContext';
 import { useDevices } from '../../context/DevicesContext';
 import { Link } from 'react-router-dom';
-import { Activity, BarChart2, Bell, Cpu, KeyRound, Plus, Shield, TrendingUp, User, Wrench, Zap } from 'lucide-react';
+import { Activity, BarChart2, Bell, Cpu, KeyRound, MessageSquare, Plus, Shield, TrendingUp, User, Wrench, Zap } from 'lucide-react';
 import { LEVELS } from '../../constants/smartHome';
 
 const LEVEL_COLORS = Object.fromEntries(
@@ -117,6 +117,7 @@ export default function DashboardPage() {
       <div className="grid grid-3 mb-4">
         <QuickLink to="/objets" icon={<Cpu size={20} />} title={isAdmin ? 'Parc objets' : 'Mes objets'} desc="Consulter les objets connectés" />
         <QuickLink to="/services" icon={<Wrench size={20} />} title="Services" desc="Rechercher les services disponibles" />
+        <QuickLink to="/demandes-admin" icon={<MessageSquare size={20} />} title={isAdmin ? 'Demandes habitants' : 'Demander à l’admin'} desc={isAdmin ? 'Traiter les demandes de la maison' : 'Proposer un objet ou une configuration'} />
         <QuickLink to="/membres" icon={<User size={20} />} title="Membres" desc="Voir les membres de la maison" />
         <QuickLink to="/profil" icon={<TrendingUp size={20} />} title="Mon profil" desc="Gérer votre profil et vos points" />
         {isAdmin && <QuickLink to="/admin" icon={<Bell size={20} />} title="Demandes d'accès" desc="Valider ou refuser les habitants" />}

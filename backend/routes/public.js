@@ -53,15 +53,17 @@ router.get('/catalog', async (req, res) => {
     const sql = `
       SELECT
         MIN(id) AS id,
+        nom,
         type_obj,
         marque,
         type_connexion,
+        MIN(description) AS description,
         COUNT(*)::int AS example_count,
-        MIN(description) AS description
+        (ARRAY_AGG(photo) FILTER (WHERE photo IS NOT NULL))[1] AS photo
       FROM objets
       ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
-      GROUP BY type_obj, marque, type_connexion
-      ORDER BY type_obj, marque
+      GROUP BY nom, type_obj, marque, type_connexion
+      ORDER BY nom
     `;
 
     const { rows } = await pool.query(sql, values);
@@ -69,14 +71,15 @@ router.get('/catalog', async (req, res) => {
       .map(row => {
         const itemFeature = inferFeature(row.type_obj);
         return {
-          id: `${row.type_obj}-${row.marque || 'generique'}-${row.type_connexion || 'standard'}`,
-          name: `${row.type_obj} ${row.marque || ''}`.trim(),
+          id: row.id,
+          name: row.nom,
           type: row.type_obj,
           brand: row.marque || 'Générique',
           connectivity: row.type_connexion || 'Non précisée',
           feature: itemFeature,
           description: row.description || catalogDescription(row.type_obj, itemFeature),
           exampleCount: row.example_count,
+          photo: row.photo || null,
         };
       })
       .filter(item => !feature || item.feature === feature);

@@ -1,6 +1,7 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, Link } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { DevicesProvider } from './context/DevicesContext';
+import { AlertTriangle, Cpu, Settings, Users, Wrench } from 'lucide-react';
 
 // Layouts & shared
 import Navbar from './components/layout/Navbar';
@@ -11,6 +12,9 @@ import HomePage from './pages/public/HomePage';
 import RegisterPage from './pages/public/RegisterPage';
 import LoginPage from './pages/public/LoginPage';
 import CreateHousePage from './pages/public/CreateHousePage';
+import SmartCatalogPage from './pages/public/EventsPage';
+import EnergyPage from './pages/public/PlacesPage';
+import SecurityPage from './pages/public/TransportsPage';
 
 // Module Visualisation (simple)
 import DashboardPage from './pages/visualisation/DashboardPage';
@@ -19,6 +23,7 @@ import MembersPage from './pages/visualisation/MembersPage';
 import DevicesListPage from './pages/visualisation/DevicesListPage';
 import DeviceDetailPage from './pages/visualisation/DeviceDetailPage';
 import ServicesPage from './pages/visualisation/ServicesPage';
+import AdminRequestsPage from './pages/visualisation/AdminRequestsPage';
 
 // Module Gestion (complexe)
 import GestionDashboard from './pages/gestion/GestionDashboard';
@@ -39,9 +44,13 @@ function ProtectedRoute({ children, module }) {
 }
 
 function AppRoutes() {
+  const { currentUser, settings } = useAuth();
+  const showMaintenanceBanner = currentUser?.appRole === 'admin' && settings.maintenanceMode;
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       <Navbar />
+      {showMaintenanceBanner && <MaintenanceBanner />}
       <main style={{ flex: 1 }}>
         <Routes>
           {/* Module Information — public */}
@@ -49,6 +58,9 @@ function AppRoutes() {
           <Route path="/inscription"    element={<RegisterPage />} />
           <Route path="/creer-maison"   element={<CreateHousePage />} />
           <Route path="/login"          element={<LoginPage />} />
+          <Route path="/catalogue-maison" element={<SmartCatalogPage />} />
+          <Route path="/energie"          element={<EnergyPage />} />
+          <Route path="/securite"         element={<SecurityPage />} />
 
           {/* Module Visualisation */}
           <Route path="/tableau-de-bord" element={
@@ -62,6 +74,9 @@ function AppRoutes() {
           } />
           <Route path="/services" element={
             <ProtectedRoute module="visualisation"><ServicesPage /></ProtectedRoute>
+          } />
+          <Route path="/demandes-admin" element={
+            <ProtectedRoute module="visualisation"><AdminRequestsPage /></ProtectedRoute>
           } />
           <Route path="/objets" element={
             <ProtectedRoute module="visualisation"><DevicesListPage /></ProtectedRoute>
@@ -101,6 +116,32 @@ function AppRoutes() {
       <Footer />
     </div>
   );
+}
+
+function MaintenanceBanner() {
+  return (
+    <div className="maintenance-banner" role="status">
+      <div className="container maintenance-banner__inner">
+        <div className="maintenance-banner__text">
+          <AlertTriangle size={20} aria-hidden="true" />
+          <div>
+            <strong>Mode maintenance actif</strong>
+            <span>Les habitants ne peuvent plus se connecter ni consulter la maison. Les admins peuvent intervenir.</span>
+          </div>
+        </div>
+        <div className="maintenance-banner__actions">
+          <NavigateLink to="/admin/objets" icon={<Cpu size={14} />} label="Maintenance" />
+          <NavigateLink to="/gestion" icon={<Wrench size={14} />} label="Gestion" />
+          <NavigateLink to="/admin/utilisateurs" icon={<Users size={14} />} label="Utilisateurs" />
+          <NavigateLink to="/admin/parametres" icon={<Settings size={14} />} label="Paramètres" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function NavigateLink({ to, icon, label }) {
+  return <Link className="maintenance-banner__link" to={to}>{icon}{label}</Link>;
 }
 
 export default function App() {

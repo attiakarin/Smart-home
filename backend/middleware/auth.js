@@ -1,4 +1,5 @@
 import jwt from 'jsonwebtoken';
+import { getAppSettings } from '../config/appSettings.js';
 
 function normalizeLevel(niveau = '') {
   return niveau
@@ -22,7 +23,7 @@ function hasMinLevel(niveau, minLevel) {
   return levelRank(niveau) >= levelRank(minLevel);
 }
 
-export function authenticate(req, res, next) {
+export async function authenticate(req, res, next) {
   const authHeader = req.headers.authorization;
   const token = authHeader && authHeader.split(' ')[1];
 
@@ -32,9 +33,23 @@ export function authenticate(req, res, next) {
 
   try {
     req.user = jwt.verify(token, process.env.JWT_SECRET);
+    const isAdmin = normalizeLevel(req.user.niveau) === 'expert' && req.user.rolee === 'admin';
+    if (!isAdmin && req.user.maisonId) {
+      const settings = await getAppSettings(req.user.maisonId);
+      if (settings.maintenanceMode) {
+        return res.status(503).json({
+          error: "La maison est en maintenance. Merci d'attendre la fin de l'action de l'administrateur.",
+          maintenanceMode: true,
+        });
+      }
+    }
     next();
-  } catch {
-    return res.status(401).json({ error: 'Token invalide ou expire.' });
+  } catch (err) {
+    if (err?.message === 'jwt malformed' || err?.name === 'JsonWebTokenError' || err?.name === 'TokenExpiredError') {
+      return res.status(401).json({ error: 'Token invalide ou expire.' });
+    }
+    console.error('Erreur authentification:', err);
+    return res.status(500).json({ error: 'Erreur serveur.' });
   }
 }
 
