@@ -143,7 +143,16 @@ router.post('/login',
       const payload = { id: user.id, login: user.pseudonyme, niveau: newNiveau, rolee: user.rolee, maisonId: user.maison_id };
       const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN || '7d' });
 
-      res.json({ token, user: mapUser({ ...user, points: finalPoints, niveau: newNiveau }) });
+      res.json({
+        token,
+        user: mapUser({
+          ...user,
+          points: finalPoints,
+          niveau: newNiveau,
+          connexions: Number(user.connexions || 0) + 1,
+          derniere_connexion: now,
+        }),
+      });
     } catch (err) {
       console.error('Erreur login :', err);
       res.status(500).json({ error: 'Erreur serveur.' });

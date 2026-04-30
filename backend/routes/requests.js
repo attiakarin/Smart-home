@@ -7,6 +7,12 @@ const router = Router();
 const VALID_TYPES = new Set(['ajout_objet', 'configuration', 'maintenance', 'droits', 'autre']);
 const VALID_PRIORITIES = new Set(['basse', 'normale', 'haute']);
 const VALID_STATUSES = new Set(['nouvelle', 'en_cours', 'traitee', 'refusee']);
+const LEVEL_POINTS = {
+  debutant: 2,
+  intermediaire: 1.5,
+  avance: 1,
+  expert: 0,
+};
 
 async function ensureRequestsTable() {
   await pool.query(`
@@ -27,6 +33,41 @@ async function ensureRequestsTable() {
     )
   `);
   await pool.query('ALTER TABLE demandes_admin ADD COLUMN IF NOT EXISTS reponse_lue BOOLEAN NOT NULL DEFAULT TRUE');
+  await pool.query('ALTER TABLE demandes_admin ADD COLUMN IF NOT EXISTS utile_validee BOOLEAN NOT NULL DEFAULT FALSE');
+  await pool.query('ALTER TABLE demandes_admin ADD COLUMN IF NOT EXISTS points_attribues NUMERIC(6,2) NOT NULL DEFAULT 0');
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS demande_messages (
+      id SERIAL PRIMARY KEY,
+      demande_id INT NOT NULL REFERENCES demandes_admin(id) ON DELETE CASCADE,
+      auteur_id INT REFERENCES users(id) ON DELETE SET NULL,
+      auteur_role VARCHAR(20) NOT NULL DEFAULT 'habitant',
+      message TEXT NOT NULL,
+      date_creation TIMESTAMP NOT NULL DEFAULT NOW()
+    )
+  `);
+}
+
+function normalizeLevel(value = '') {
+  return value
+    .toString()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+}
+
+function computeLevel(points) {
+  if (points >= 30) return 'Expert';
+  if (points >= 15) return 'Avanc\u00e9';
+  if (points >= 5) return 'Interm\u00e9diaire';
+  return 'D\u00e9butant';
+}
+
+function bonusForLevel(level) {
+  const normalized = normalizeLevel(level);
+  if (normalized.includes('debutant') || normalized.includes('butant')) return LEVEL_POINTS.debutant;
+  if (normalized.includes('intermediaire') || normalized.includes('diaire')) return LEVEL_POINTS.intermediaire;
+  if (normalized.includes('avance') || normalized.includes('avanc')) return LEVEL_POINTS.avance;
+  return LEVEL_POINTS[normalized] || 0;
 }
 
 function mapRequest(row) {
@@ -42,6 +83,9 @@ function mapRequest(row) {
     adminReply: row.reponse_admin || '',
     replyRead: Boolean(row.reponse_lue),
     handledBy: row.traite_par,
+    usefulValidated: Boolean(row.utile_validee),
+    awardedPoints: Number(row.points_attribues || 0),
+    closed: ['traitee', 'refusee'].includes(row.statut),
     createdAt: row.date_creation,
     updatedAt: row.date_maj,
     requester: {
@@ -55,7 +99,54 @@ function mapRequest(row) {
       prenom: row.admin_prenom,
       nom: row.admin_nom,
     } : null,
+    messages: [],
   };
+}
+
+async function attachMessages(requests) {
+  if (requests.length === 0) return requests;
+  const ids = requests.map(request => request.id);
+  const { rows } = await pool.query(
+    `SELECT demande_messages.*,
+            users.pseudonyme AS auteur_login,
+            users.prenom AS auteur_prenom,
+            users.nom AS auteur_nom
+     FROM demande_messages
+     LEFT JOIN users ON users.id = demande_messages.auteur_id
+     WHERE demande_id = ANY($1::int[])
+     ORDER BY date_creation ASC, id ASC`,
+    [ids]
+  );
+  const byRequestId = rows.reduce((acc, row) => {
+    const key = String(row.demande_id);
+    if (!acc[key]) acc[key] = [];
+    acc[key].push({
+      id: row.id,
+      requestId: row.demande_id,
+      authorId: row.auteur_id,
+      authorRole: row.auteur_role,
+      message: row.message,
+      createdAt: row.date_creation,
+      author: row.auteur_login ? {
+        login: row.auteur_login,
+        prenom: row.auteur_prenom,
+        nom: row.auteur_nom,
+      } : null,
+    });
+    return acc;
+  }, {});
+  return requests.map(request => ({
+    ...request,
+    messages: byRequestId[String(request.id)] || [{
+      id: `initial-${request.id}`,
+      requestId: request.id,
+      authorId: request.userId,
+      authorRole: 'habitant',
+      message: request.message,
+      createdAt: request.createdAt,
+      author: request.requester,
+    }],
+  }));
 }
 
 async function fetchRequests(whereSql, values) {
@@ -83,7 +174,7 @@ async function fetchRequests(whereSql, values) {
        demandes_admin.date_creation DESC`,
     values
   );
-  return rows.map(mapRequest);
+  return attachMessages(rows.map(mapRequest));
 }
 
 router.use(authenticate);
@@ -142,6 +233,12 @@ router.post('/', async (req, res) => {
       [req.user.maisonId, req.user.id, type, title, message, priority]
     );
 
+    await pool.query(
+      `INSERT INTO demande_messages (demande_id, auteur_id, auteur_role, message)
+       VALUES ($1, $2, 'habitant', $3)`,
+      [rows[0].id, req.user.id, message]
+    );
+
     const created = await fetchRequests('WHERE demandes_admin.id = $1', [rows[0].id]);
     res.status(201).json(created[0]);
   } catch (err) {
@@ -168,8 +265,9 @@ router.patch('/:id', requireModule('administration'), async (req, res) => {
     await ensureRequestsTable();
     const status = VALID_STATUSES.has(req.body.status) ? req.body.status : undefined;
     const adminReply = req.body.adminReply !== undefined ? String(req.body.adminReply || '').trim() : undefined;
+    const awardUseful = Boolean(req.body.awardUseful);
 
-    if (!status && adminReply === undefined) {
+    if (!status && adminReply === undefined && !awardUseful) {
       return res.status(400).json({ error: 'Aucune modification fournie.' });
     }
 
@@ -196,8 +294,85 @@ router.patch('/:id', requireModule('administration'), async (req, res) => {
     );
 
     if (!rows[0]) return res.status(404).json({ error: 'Demande introuvable.' });
+
+    if (adminReply) {
+      await pool.query(
+        `INSERT INTO demande_messages (demande_id, auteur_id, auteur_role, message)
+         VALUES ($1, $2, 'admin', $3)`,
+        [rows[0].id, req.user.id, adminReply]
+      );
+    }
+
+    if (status === 'traitee' && awardUseful) {
+      const requestResult = await pool.query(
+        `SELECT demandes_admin.user_id, demandes_admin.utile_validee, users.points, users.niveau
+         FROM demandes_admin
+         JOIN users ON users.id = demandes_admin.user_id
+         WHERE demandes_admin.id = $1`,
+        [rows[0].id]
+      );
+      const request = requestResult.rows[0];
+      const bonus = request && !request.utile_validee ? bonusForLevel(request.niveau) : 0;
+      if (bonus > 0) {
+        const nextPoints = Number(request.points || 0) + bonus;
+        const nextLevel = computeLevel(nextPoints);
+        await pool.query(
+          'UPDATE users SET points = $1, niveau = $2 WHERE id = $3',
+          [nextPoints, nextLevel, request.user_id]
+        );
+        await pool.query(
+          'UPDATE demandes_admin SET utile_validee = TRUE, points_attribues = $1 WHERE id = $2',
+          [bonus, rows[0].id]
+        );
+      }
+    }
+
     const updated = await fetchRequests('WHERE demandes_admin.id = $1', [rows[0].id]);
     res.json(updated[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erreur serveur.' });
+  }
+});
+
+router.post('/:id/messages', async (req, res) => {
+  try {
+    await ensureRequestsTable();
+    const message = String(req.body.message || '').trim();
+    if (!message) return res.status(400).json({ error: 'Message requis.' });
+
+    const { rows } = await pool.query(
+      `SELECT id, user_id, maison_id, statut
+       FROM demandes_admin
+       WHERE id = $1
+         AND maison_id = $2
+         AND ($3 = TRUE OR user_id = $4)`,
+      [req.params.id, req.user.maisonId, req.user.rolee === 'admin', req.user.id]
+    );
+    const request = rows[0];
+    if (!request) return res.status(404).json({ error: 'Demande introuvable.' });
+    if (['traitee', 'refusee'].includes(request.statut)) {
+      return res.status(400).json({ error: 'Cette conversation est fermee.' });
+    }
+
+    const isAdmin = req.user.rolee === 'admin';
+    await pool.query(
+      `INSERT INTO demande_messages (demande_id, auteur_id, auteur_role, message)
+       VALUES ($1, $2, $3, $4)`,
+      [request.id, req.user.id, isAdmin ? 'admin' : 'habitant', message]
+    );
+
+    const fields = ['date_maj = NOW()'];
+    if (isAdmin) fields.push('reponse_lue = FALSE', 'traite_par = $2', 'reponse_admin = $3');
+    await pool.query(
+      `UPDATE demandes_admin
+       SET ${fields.join(', ')}
+       WHERE id = $1`,
+      isAdmin ? [request.id, req.user.id, message] : [request.id]
+    );
+
+    const updated = await fetchRequests('WHERE demandes_admin.id = $1', [request.id]);
+    res.status(201).json(updated[0]);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Erreur serveur.' });

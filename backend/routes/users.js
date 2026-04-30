@@ -86,6 +86,38 @@ function toDbGenre(value) {
   return '-';
 }
 
+async function attachLoginHistory(users) {
+  if (users.length === 0) return [];
+
+  const userIds = users.map(user => user.id);
+  const { rows } = await pool.query(
+    `SELECT user_id,
+            TO_CHAR(heure_co::date, 'YYYY-MM-DD') AS date,
+            COUNT(*)::int AS connexions
+     FROM historique_connexion
+     WHERE user_id = ANY($1::int[])
+       AND heure_co::date >= CURRENT_DATE - INTERVAL '6 days'
+     GROUP BY user_id, heure_co::date
+     ORDER BY date ASC`,
+    [userIds]
+  );
+
+  const historyByUserId = rows.reduce((acc, row) => {
+    const key = String(row.user_id);
+    if (!acc[key]) acc[key] = [];
+    acc[key].push({
+      date: row.date,
+      connexions: Number(row.connexions || 0),
+    });
+    return acc;
+  }, {});
+
+  return users.map(user => ({
+    ...user,
+    loginHistory: historyByUserId[String(user.id)] || [],
+  }));
+}
+
 router.get('/members', authenticate, async (req, res) => {
   try {
     const { rows } = await pool.query(
@@ -99,7 +131,8 @@ router.get('/members', authenticate, async (req, res) => {
        ORDER BY niveau DESC, points DESC`,
       [req.user.maisonId || null]
     );
-    res.json(rows.map(mapUser));
+    const usersWithHistory = await attachLoginHistory(rows);
+    res.json(usersWithHistory.map(mapUser));
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Erreur serveur.' });
@@ -163,7 +196,8 @@ router.get('/', async (req, res) => {
        ORDER BY users.id`,
       [req.user.maisonId || null]
     );
-    res.json(rows.map(mapUser));
+    const usersWithHistory = await attachLoginHistory(rows);
+    res.json(usersWithHistory.map(mapUser));
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Erreur serveur.' });

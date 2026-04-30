@@ -306,6 +306,15 @@ export const requestsAPI = {
     });
     return handleResponse(response);
   },
+
+  addMessage: async (id, message) => {
+    const response = await fetch(`${API_BASE_URL}/requests/${id}/messages`, {
+      method: 'POST',
+      headers: getHeaders(true),
+      body: JSON.stringify({ message }),
+    });
+    return handleResponse(response);
+  },
 };
 
 // Services consultables

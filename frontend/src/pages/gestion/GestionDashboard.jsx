@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useDevices } from '../../context/DevicesContext';
 import { useAuth } from '../../context/AuthContext';
-import { Plus, Settings, BarChart2, AlertTriangle } from 'lucide-react';
+import { Plus, Settings, BarChart2, AlertTriangle, Cpu } from 'lucide-react';
 import AddDeviceModal from './AddDeviceModal';
 
 export default function GestionDashboard() {
@@ -101,10 +101,21 @@ export default function GestionDashboard() {
             {devices.map(d => (
               <tr key={d.id}>
                 <td style={{ fontWeight: 600 }}>
-                  {d.name}
-                  {d.battery !== null && d.battery !== undefined && d.battery < 25 && (
-                    <AlertTriangle size={14} color="#f59e0b" style={{ verticalAlign: 'middle', marginLeft: 6 }} aria-label="Batterie faible" />
-                  )}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '.65rem' }}>
+                    <div style={{ width: 42, height: 42, borderRadius: 8, background: '#f1f5f9', color: 'var(--color-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flex: '0 0 auto' }} aria-hidden="true">
+                      {d.photo ? (
+                        <img src={d.photo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      ) : (
+                        <Cpu size={18} />
+                      )}
+                    </div>
+                    <span>
+                      {d.name}
+                      {d.battery !== null && d.battery !== undefined && d.battery < 25 && (
+                        <AlertTriangle size={14} color="#f59e0b" style={{ verticalAlign: 'middle', marginLeft: 6 }} aria-label="Batterie faible" />
+                      )}
+                    </span>
+                  </div>
                 </td>
                 <td>{d.type}</td>
                 <td>{d.room}</td>

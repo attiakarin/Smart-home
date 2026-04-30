@@ -129,15 +129,20 @@ export default function DashboardPage() {
       <div className="grid grid-3">
         {devices.filter(device => device.status === 'active').slice(0, 6).map(device => (
           <Link key={device.id} to={`/objets/${device.id}`} className="card card-clickable" style={{ padding: '1rem' }}>
-            <div className="flex items-center gap-2 mb-1">
-              <span className="status-dot active" aria-hidden="true" />
-              <strong style={{ fontSize: '.92rem' }}>{device.name}</strong>
+            <div style={{ display: 'flex', gap: '.75rem', alignItems: 'center' }}>
+              <DeviceThumb device={device} size={58} />
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="status-dot active" aria-hidden="true" />
+                  <strong style={{ fontSize: '.92rem' }}>{device.name}</strong>
+                </div>
+                <div className="flex gap-1" style={{ flexWrap: 'wrap' }}>
+                  <span className="badge badge-gray">{device.type}</span>
+                  <span className="badge badge-gray">{device.room}</span>
+                </div>
+                <p style={{ fontSize: '.8rem', color: 'var(--color-text-muted)', marginTop: '.4rem' }}>{device.brand}</p>
+              </div>
             </div>
-            <div className="flex gap-1" style={{ flexWrap: 'wrap' }}>
-              <span className="badge badge-gray">{device.type}</span>
-              <span className="badge badge-gray">{device.room}</span>
-            </div>
-            <p style={{ fontSize: '.8rem', color: 'var(--color-text-muted)', marginTop: '.4rem' }}>{device.brand}</p>
           </Link>
         ))}
       </div>
@@ -153,6 +158,18 @@ function StatCard({ icon, value, label, color, iconColor }) {
       </div>
       <div style={{ fontSize: '1.5rem', fontWeight: 800, color: iconColor }}>{value}</div>
       <div style={{ fontSize: '.82rem', color: 'var(--color-text-muted)' }}>{label}</div>
+    </div>
+  );
+}
+
+function DeviceThumb({ device, size = 52 }) {
+  return (
+    <div style={{ width: size, height: size, borderRadius: 10, background: '#dbeafe', color: '#1a73e8', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flex: '0 0 auto' }} aria-hidden="true">
+      {device.photo ? (
+        <img src={device.photo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+      ) : (
+        <Cpu size={22} />
+      )}
     </div>
   );
 }
