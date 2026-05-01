@@ -2,23 +2,47 @@ import { Router } from 'express';
 import pool from '../config/db.js';
 import { authenticate, requireModule } from '../middleware/auth.js';
 import { mapDevice, mapDeviceInput, mapStatusToDb } from '../utils/deviceMapper.js';
+import { computeConsumption, getTopConsumer, saveMonthlyConsumption, getConfig } from './house.js';
 
 const router = Router();
 
-async function findRoomId(roomName) {
-  if (!roomName) return null;
-  const { rows } = await pool.query('SELECT id FROM piece_maison WHERE nom = $1 LIMIT 1', [roomName]);
-  return rows[0]?.id || null;
+function normalizePhoto(photo) {
+  if (photo === undefined) return undefined;
+  if (photo === null || photo === '') return null;
+  if (typeof photo !== 'string' || !photo.startsWith('data:image/')) {
+    const error = new Error('La photo doit etre une image.');
+    error.status = 400;
+    throw error;
+  }
+  if (Buffer.byteLength(photo, 'utf8') > 1_000_000) {
+    const error = new Error('La photo doit faire moins de 1 Mo.');
+    error.status = 400;
+    throw error;
+  }
+  return photo;
 }
 
-async function fetchDevice(id, maisonId) {
+async function findRoomId(roomName) {
+  if (!roomName) return null;
+  const normalizedRoom = String(roomName).trim();
+  if (!normalizedRoom) return null;
+  const { rows } = await pool.query('SELECT id FROM piece_maison WHERE LOWER(nom) = LOWER($1) LIMIT 1', [normalizedRoom]);
+  if (rows[0]?.id) return rows[0].id;
+  const created = await pool.query(
+    'INSERT INTO piece_maison (nom, description) VALUES ($1, $2) RETURNING id',
+    [normalizedRoom, `Piece configuree pour une maison connectee.`]
+  );
+  return created.rows[0]?.id || null;
+}
+
+async function fetchDevice(id, user) {
   const { rows } = await pool.query(
     `SELECT objets.*, piece_maison.nom AS piece_nom
      FROM objets
      LEFT JOIN piece_maison ON piece_maison.id = objets.piece_id
      WHERE objets.id = $1
        AND (objets.maison_id = $2 OR $2 IS NULL)`,
-    [id, maisonId || null]
+    [id, user?.maisonId || null]
   );
   if (!rows[0]) return null;
 
@@ -64,13 +88,13 @@ router.get('/', authenticate, async (req, res) => {
     res.json(rows.map(mapDevice));
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Erreur serveur.' });
+    res.status(err.status || 500).json({ error: err.message || 'Erreur serveur.' });
   }
 });
 
 router.get('/:id', authenticate, async (req, res) => {
   try {
-    const device = await fetchDevice(req.params.id, req.user.maisonId);
+    const device = await fetchDevice(req.params.id, req.user);
     if (!device) return res.status(404).json({ error: 'Objet introuvable.' });
 
     const { rows } = await pool.query(
@@ -81,13 +105,13 @@ router.get('/:id', authenticate, async (req, res) => {
     res.json({ ...device, history: rows });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Erreur serveur.' });
+    res.status(err.status || 500).json({ error: err.message || 'Erreur serveur.' });
   }
 });
 
-router.post('/', authenticate, requireModule('gestion'), async (req, res) => {
+router.post('/', authenticate, requireModule('device_create'), async (req, res) => {
   const input = mapDeviceInput(req.body);
-  let { nom, type_obj, marque, piece_id, statut, type_connexion, signal_obj, batterie, energie_consommer, description, derniere_connexion } = input;
+  let { nom, type_obj, marque, piece_id, statut, type_connexion, signal_obj, batterie, energie_consommer, description, photo, derniere_connexion } = input;
 
   if (!nom || !type_obj) return res.status(400).json({ error: 'Nom et type requis.' });
 
@@ -97,17 +121,19 @@ router.post('/', authenticate, requireModule('gestion'), async (req, res) => {
       const { rows } = await pool.query('SELECT id FROM piece_maison ORDER BY id LIMIT 1');
       piece_id = rows[0]?.id;
     }
+    photo = normalizePhoto(photo);
 
     const dbStatus = mapStatusToDb(statut || 'inactive');
     const result = await pool.query(
       `INSERT INTO objets (
-        maison_id, nom, type_obj, marque, piece_id, statut, type_connexion,
-        signal_obj, batterie, energie_consommer, description, derniere_connexion, date_creation
+        maison_id, user_id, nom, type_obj, marque, piece_id, statut, type_connexion,
+        signal_obj, batterie, energie_consommer, description, photo, derniere_connexion, date_creation
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, COALESCE($12, NOW()), NOW())
+      VALUES ($1, $2, $3, $4, $5, $6, $7::statut_objet_enum, $8, $9, $10, $11, $12, $13, COALESCE($14, NOW()), NOW())
       RETURNING id`,
       [
         req.user.maisonId || null,
+        req.user.id || null,
         nom,
         type_obj,
         marque || null,
@@ -118,6 +144,7 @@ router.post('/', authenticate, requireModule('gestion'), async (req, res) => {
         batterie != null && batterie !== '' ? batterie : null,
         energie_consommer || 0,
         description || '',
+        photo || null,
         derniere_connexion || null,
       ]
     );
@@ -129,17 +156,17 @@ router.post('/', authenticate, requireModule('gestion'), async (req, res) => {
     );
     await saveDeviceSettings(deviceId, req.body.settings);
 
-    const created = await fetchDevice(deviceId, req.user.maisonId);
+    const created = await fetchDevice(deviceId, req.user);
     res.status(201).json(created);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Erreur serveur.' });
+    res.status(err.status || 500).json({ error: err.message || 'Erreur serveur.' });
   }
 });
 
-router.put('/:id', authenticate, requireModule('gestion'), async (req, res) => {
+router.put('/:id', authenticate, requireModule('device_config'), async (req, res) => {
   const mapped = mapDeviceInput(req.body);
-  const allowed = ['nom', 'type_obj', 'marque', 'piece_id', 'statut', 'type_connexion', 'signal_obj', 'batterie', 'energie_consommer', 'description', 'derniere_connexion'];
+  const allowed = ['nom', 'type_obj', 'marque', 'piece_id', 'statut', 'type_connexion', 'signal_obj', 'batterie', 'energie_consommer', 'description', 'photo', 'derniere_connexion'];
   const fields = [];
   const values = [];
 
@@ -147,11 +174,16 @@ router.put('/:id', authenticate, requireModule('gestion'), async (req, res) => {
   if (mapped.batterie === '') mapped.batterie = null;
   if (mapped.batterie !== undefined && mapped.batterie !== null) mapped.batterie = Number(mapped.batterie);
   if (mapped.energie_consommer !== undefined) mapped.energie_consommer = Number(mapped.energie_consommer || 0);
+  try {
+    mapped.photo = normalizePhoto(mapped.photo);
+  } catch (err) {
+    return res.status(err.status || 400).json({ error: err.message });
+  }
 
   for (const key of allowed) {
     if (mapped[key] !== undefined) {
       values.push(key === 'statut' ? mapStatusToDb(mapped[key]) : mapped[key]);
-      fields.push(`${key} = $${values.length}`);
+      fields.push(key === 'statut' ? `${key} = $${values.length}::statut_objet_enum` : `${key} = $${values.length}`);
     }
   }
 
@@ -159,11 +191,12 @@ router.put('/:id', authenticate, requireModule('gestion'), async (req, res) => {
 
   try {
     values.push(req.params.id, req.user.maisonId || null);
-    await pool.query(
+    const updatedRows = await pool.query(
       `UPDATE objets SET ${fields.join(', ')}
        WHERE id = $${values.length - 1} AND (maison_id = $${values.length} OR $${values.length} IS NULL)`,
       values
     );
+    if (updatedRows.rowCount === 0) return res.status(404).json({ error: 'Objet introuvable.' });
 
     if (mapped.statut !== undefined) {
       const dbStatus = mapStatusToDb(mapped.statut);
@@ -171,10 +204,19 @@ router.put('/:id', authenticate, requireModule('gestion'), async (req, res) => {
         'INSERT INTO historique_objet (objt_id, valeur, unite) VALUES ($1, $2, $3)',
         [req.params.id, dbStatus === 'Active' ? 1 : 0, 'etat']
       );
+      try {
+        const config = await getConfig(req.user.maisonId);
+        const budget = Number(config?.budgetKwh || 0);
+        const consumption = await computeConsumption(req.user.maisonId);
+        const topConsumer = await getTopConsumer(req.user.maisonId);
+        await saveMonthlyConsumption(req.user.maisonId, consumption, budget, topConsumer);
+      } catch (e) {
+        console.error('Erreur mise a jour consommation apres changement statut:', e);
+      }
     }
     await saveDeviceSettings(req.params.id, req.body.settings);
 
-    const updated = await fetchDevice(req.params.id, req.user.maisonId);
+    const updated = await fetchDevice(req.params.id, req.user);
     res.json(updated);
   } catch (err) {
     console.error(err);
@@ -182,16 +224,21 @@ router.put('/:id', authenticate, requireModule('gestion'), async (req, res) => {
   }
 });
 
-router.patch('/:id/toggle', authenticate, requireModule('gestion'), async (req, res) => {
+router.patch('/:id/toggle', authenticate, requireModule('device_toggle'), async (req, res) => {
   try {
     await pool.query(
       `UPDATE objets
-       SET statut = CASE WHEN statut = 'Active' THEN 'Inactive' ELSE 'Active' END
+       SET statut = (
+         CASE WHEN statut = 'Active'::statut_objet_enum
+         THEN 'Inactive'
+         ELSE 'Active'
+         END
+       )::statut_objet_enum
        WHERE id = $1 AND (maison_id = $2 OR $2 IS NULL)`,
       [req.params.id, req.user.maisonId || null]
     );
 
-    const updated = await fetchDevice(req.params.id, req.user.maisonId);
+    const updated = await fetchDevice(req.params.id, req.user);
     if (!updated) return res.status(404).json({ error: 'Objet introuvable.' });
 
     await pool.query(
@@ -199,6 +246,16 @@ router.patch('/:id/toggle', authenticate, requireModule('gestion'), async (req, 
       [req.params.id, updated.status === 'active' ? 1 : 0, 'etat']
     );
 
+    try {
+      const config = await getConfig(req.user.maisonId);
+      const budget = Number(config?.budgetKwh || 0);
+      const consumption = await computeConsumption(req.user.maisonId);
+      const topConsumer = await getTopConsumer(req.user.maisonId);
+      await saveMonthlyConsumption(req.user.maisonId, consumption, budget, topConsumer);
+    } catch (e) {
+      console.error('Erreur mise a jour consommation apres toggle:', e);
+    }
+
     res.json(updated);
   } catch (err) {
     console.error(err);
@@ -206,7 +263,7 @@ router.patch('/:id/toggle', authenticate, requireModule('gestion'), async (req, 
   }
 });
 
-router.delete('/:id', authenticate, requireModule('administration'), async (req, res) => {
+router.delete('/:id', authenticate, requireModule('device_delete'), async (req, res) => {
   try {
     await pool.query(
       `DELETE FROM historique_objet
@@ -216,10 +273,11 @@ router.delete('/:id', authenticate, requireModule('administration'), async (req,
          AND (objets.maison_id = $2 OR $2 IS NULL)`,
       [req.params.id, req.user.maisonId || null]
     );
-    await pool.query(
+    const deleted = await pool.query(
       'DELETE FROM objets WHERE id = $1 AND (maison_id = $2 OR $2 IS NULL)',
       [req.params.id, req.user.maisonId || null]
     );
+    if (deleted.rowCount === 0) return res.status(404).json({ error: 'Objet introuvable.' });
     res.json({ message: 'Objet supprime.' });
   } catch (err) {
     console.error(err);
@@ -229,7 +287,7 @@ router.delete('/:id', authenticate, requireModule('administration'), async (req,
 
 router.get('/:id/history', authenticate, async (req, res) => {
   try {
-    const device = await fetchDevice(req.params.id, req.user.maisonId);
+    const device = await fetchDevice(req.params.id, req.user);
     if (!device) return res.status(404).json({ error: 'Objet introuvable.' });
 
     const { rows } = await pool.query(

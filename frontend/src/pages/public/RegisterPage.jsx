@@ -4,17 +4,29 @@ import { useAuth } from '../../context/AuthContext';
 import { UserPlus, Eye, EyeOff, KeyRound } from 'lucide-react';
 
 const ROLES = ['mère', 'père', 'enfant', 'autre'];
+function formatDateInput(date) {
+  return date.toISOString().slice(0, 10);
+}
+
+function getAdultMaxBirthDate() {
+  const date = new Date();
+  date.setFullYear(date.getFullYear() - 18);
+  return formatDateInput(date);
+}
+
 
 function calculateAge(dateValue) {
-  if (!dateValue) return '';
+  if (!dateValue) return null;
   const birthDate = new Date(dateValue);
-  if (Number.isNaN(birthDate.getTime())) return '';
+  if (Number.isNaN(birthDate.getTime())) return null;
   const today = new Date();
   let age = today.getFullYear() - birthDate.getFullYear();
   const monthDelta = today.getMonth() - birthDate.getMonth();
   if (monthDelta < 0 || (monthDelta === 0 && today.getDate() < birthDate.getDate())) age -= 1;
-  return age >= 0 ? String(age) : '';
+  return age >= 0 ? age : null;
 }
+
+
 
 export default function RegisterPage() {
   const { register, loading } = useAuth();
@@ -22,19 +34,18 @@ export default function RegisterPage() {
   const [form, setForm] = useState({
     login: '', password: '', confirmPassword: '',
     nom: '', prenom: '', email: '',
-    accessCode: '',
-    age: '', sexe: 'Homme', dateNaissance: '', role: 'père',
+    accessCode: '', sexe: 'Homme', dateNaissance: '', role: 'père',
   });
   const [showPw, setShowPw] = useState(false);
   const [error, setError]   = useState('');
-  const [success, setSuccess] = useState(false);
+  const [success, setSuccess] = useState(null);
+  const maxBirthDate = getAdultMaxBirthDate();
 
   const handleChange = e => {
     const { name, value } = e.target;
     setForm(f => ({
       ...f,
-      [name]: value,
-      ...(name === 'dateNaissance' ? { age: calculateAge(value) } : {}),
+      [name]: value,
     }));
   };
 
@@ -55,6 +66,11 @@ export default function RegisterPage() {
       setError('Le mot de passe doit contenir au moins 8 caractères.');
       return;
     }
+    if (calculateAge(form.dateNaissance) < 18) {
+      setError('Vous devez avoir au moins 18 ans pour vous inscrire.');
+      return;
+    }
+
     // Simple email validation
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
       setError('Adresse email invalide.');
@@ -66,16 +82,28 @@ export default function RegisterPage() {
     
     const { confirmPassword, ...data } = form;
     const submitData = { 
-      ...data, 
-      age: calculateAge(data.dateNaissance) || 0,
+      ...data, 
       sexe: genreMap[data.sexe] || '-'
     };
     
     const result = await register(submitData);
     if (!result.success) {
       setError(result.error);
+    } else if (result.autoApproved) {
+      setSuccess({
+        title: 'Inscription validée !',
+        message: result.message || 'Votre inscription est validée. Vous êtes connecté directement.',
+        actionLabel: 'Accéder au tableau de bord',
+        actionTo: '/tableau-de-bord',
+      });
+      setTimeout(() => navigate('/tableau-de-bord'), 1400);
     } else {
-      setSuccess(true);
+      setSuccess({
+        title: 'Inscription envoyée !',
+        message: result.message || "Votre demande a été envoyée à l'administrateur de la maison. Vous pourrez vous connecter après validation.",
+        actionLabel: 'Se connecter',
+        actionTo: '/login',
+      });
     }
   };
 
@@ -84,11 +112,11 @@ export default function RegisterPage() {
       <div className="container section text-center animate-fade">
         <div style={{ maxWidth: 480, margin: '0 auto' }}>
           <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>✅</div>
-          <h1 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '1rem' }}>Inscription envoyée !</h1>
+          <h1 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '1rem' }}>{success.title}</h1>
           <div className="alert alert-success mb-3">
-            Votre demande a été envoyée à l'administrateur de la maison. Vous pourrez vous connecter après validation.
+            {success.message}
           </div>
-          <Link to="/login" className="btn btn-primary">Se connecter</Link>
+          <Link to={success.actionTo} className="btn btn-primary">{success.actionLabel}</Link>
         </div>
       </div>
     );
@@ -141,11 +169,6 @@ export default function RegisterPage() {
                   value={form.nom} onChange={handleChange} required autoComplete="family-name" />
               </div>
               <div className="form-group">
-                <label className="form-label" htmlFor="reg-age">Âge</label>
-                <input id="reg-age" name="age" type="number" className="form-input" min="1" max="120"
-                  value={form.age} readOnly />
-              </div>
-              <div className="form-group">
                 <label className="form-label" htmlFor="reg-sexe">Sexe / Genre</label>
                 <select id="reg-sexe" name="sexe" className="form-select" value={form.sexe} onChange={handleChange}>
                   <option>Homme</option><option>Femme</option><option>Non-binaire</option><option>Préfère ne pas préciser</option>
@@ -154,7 +177,7 @@ export default function RegisterPage() {
               <div className="form-group">
                 <label className="form-label" htmlFor="reg-dob">Date de naissance *</label>
                 <input id="reg-dob" name="dateNaissance" type="date" className="form-input"
-                  value={form.dateNaissance} onChange={handleChange} required />
+                  value={form.dateNaissance} onChange={handleChange} max={maxBirthDate} required />
               </div>
               <div className="form-group">
                 <label className="form-label" htmlFor="reg-role">Rôle dans la maison</label>

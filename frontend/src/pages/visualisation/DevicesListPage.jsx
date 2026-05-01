@@ -67,6 +67,13 @@ export default function DevicesListPage() {
             aria-label={`Consulter ${d.name}`}
             onClick={() => handleView(d.id)}
           >
+            <div style={{ height: 132, borderRadius: 8, background: '#f1f5f9', marginBottom: '.85rem', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-primary)' }} aria-hidden="true">
+              {d.photo ? (
+                <img src={d.photo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              ) : (
+                <Cpu size={32} />
+              )}
+            </div>
             <div className="flex items-center gap-2 mb-2">
               <span className={`status-dot ${d.status === 'active' ? 'active' : 'inactive'}`} aria-hidden="true" />
               <span className="badge badge-gray">{d.type}</span>

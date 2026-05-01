@@ -1,38 +1,59 @@
+import { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useDevices } from '../../context/DevicesContext';
 import { Link } from 'react-router-dom';
-import { Activity, BarChart2, Bell, Cpu, KeyRound, Plus, Shield, TrendingUp, User, Wrench, Zap } from 'lucide-react';
-import { LEVELS } from '../../data/mockData';
+import { Activity, BarChart2, Bell, Cpu, KeyRound, MessageSquare, Plus, Shield, TrendingUp, User, Wrench, Zap } from 'lucide-react';
+import { LEVELS } from '../../constants/smartHome';
+import { requestsAPI } from '../../services/api';
 
-const LEVEL_COLORS = {
-  débutant: '#6b7280',
-  intermédiaire: '#3b82f6',
-  avancé: '#8b5cf6',
-  expert: '#f59e0b',
-};
+const LEVEL_COLORS = Object.fromEntries(
+  Object.entries(LEVELS).map(([level, config]) => [level.toLowerCase(), config.color])
+);
 
 const NEXT_LEVEL = {
-  débutant: 'intermédiaire',
-  intermédiaire: 'avancé',
-  avancé: 'expert',
+  débutant: 'Intermédiaire',
+  intermédiaire: 'Avancé',
+  avancé: 'Expert',
   expert: null,
 };
 
 export default function DashboardPage() {
-  const { currentUser, users, canAccess } = useAuth();
+  const { currentUser, users, canAccess, houseConsumption } = useAuth();
   const { devices } = useDevices();
+  const [signalMessage, setSignalMessage] = useState('');
 
   const isAdmin = currentUser.appRole === 'admin';
+  const canUseGestion = canAccess('gestion');
+  const canCreateDevices = canAccess('device_create');
+  const canSeeReports = canAccess('reports');
   const levelKey = currentUser.niveau?.toLowerCase();
   const pendingUsers = users.filter(user => user.status === 'pending');
   const active = devices.filter(device => device.status === 'active').length;
   const inactive = devices.filter(device => device.status === 'inactive').length;
   const lowBattery = devices.filter(device => device.battery !== null && device.battery !== undefined && device.battery < 25).length;
-  const totalEnergy = devices.reduce((sum, device) => sum + (device.energyConsumption > 0 ? device.energyConsumption : 0), 0).toFixed(1);
+  const totalEnergy = devices.filter(device => device.status === 'active').reduce((sum, device) => sum + (device.energyConsumption > 0 ? device.energyConsumption : 0), 0).toFixed(1);
 
   const next = NEXT_LEVEL[levelKey];
   const nextPts = next ? LEVELS[next].points : null;
   const progress = nextPts ? Math.min(100, (Number(currentUser.points || 0) / nextPts) * 100).toFixed(0) : 100;
+  const budget = Number(houseConsumption?.budgetKwh || 0);
+  const consumption = Number(houseConsumption?.consumptionKwh || 0);
+  const consumptionProgress = budget ? Math.min(100, (consumption / budget) * 100) : 0;
+
+  const signalDevice = async (warning) => {
+    setSignalMessage('');
+    try {
+      await requestsAPI.create({
+        type: 'maintenance',
+        priority: 'haute',
+        title: `Prevention consommation - ${warning.deviceName}`,
+        message: `${warning.message}\nConsommation estimee: ${warning.consumptionKwh} kWh.\nPiece: ${warning.room || 'Non precisee'}.`,
+      });
+      setSignalMessage('Signalement envoye a l admin. Il pourra le valider et attribuer les points.');
+    } catch (err) {
+      setSignalMessage(err.message || 'Impossible d envoyer le signalement.');
+    }
+  };
 
   return (
     <div className="container section animate-fade">
@@ -86,7 +107,7 @@ export default function DashboardPage() {
             </span>
             <p style={{ marginTop: '.3rem', fontSize: '.88rem', color: 'var(--color-text-muted)' }}>
               {Number(currentUser.points || 0).toFixed(2)} / {nextPts ?? '∞'} points
-              {!isAdmin && next && <> - prochain niveau : <strong style={{ color: LEVEL_COLORS[next] }}>{next}</strong></>}
+              {!isAdmin && next && <> - prochain niveau : <strong style={{ color: LEVELS[next].color }}>{next}</strong></>}
             </p>
           </div>
           <div style={{ textAlign: 'right', fontSize: '.85rem', color: 'var(--color-text-muted)' }}>
@@ -98,7 +119,7 @@ export default function DashboardPage() {
         <div className="level-progress" aria-label={`Progression : ${progress}%`}>
           <div className="level-progress__bar" style={{ width: `${progress}%`, background: LEVEL_COLORS[levelKey] || '#6b7280' }} />
         </div>
-        {canAccess('gestion') && (
+        {canUseGestion && (
           <Link to="/gestion" className="btn btn-primary btn-sm mt-2" style={{ alignSelf: 'flex-start' }}>
             <BarChart2 size={15} /> Accéder à la gestion
           </Link>
@@ -113,37 +134,89 @@ export default function DashboardPage() {
         <StatCard icon={<Zap size={22} />} value={isAdmin ? lowBattery : `${totalEnergy} kWh`} label={isAdmin ? 'Batteries faibles' : 'Consommation'} color="#fef3c7" iconColor="#f59e0b" />
       </div>
 
+      <ConsumptionPanel
+        consumption={houseConsumption}
+        budget={budget}
+        currentConsumption={consumption}
+        progress={consumptionProgress}
+        isAdmin={isAdmin}
+        signalMessage={signalMessage}
+        onSignal={signalDevice}
+      />
+
       <h2 className="section-title" style={{ fontSize: '1.2rem' }}>Accès rapides</h2>
       <div className="grid grid-3 mb-4">
         <QuickLink to="/objets" icon={<Cpu size={20} />} title={isAdmin ? 'Parc objets' : 'Mes objets'} desc="Consulter les objets connectés" />
         <QuickLink to="/services" icon={<Wrench size={20} />} title="Services" desc="Rechercher les services disponibles" />
+        <QuickLink to="/demandes-admin" icon={<MessageSquare size={20} />} title={isAdmin ? 'Demandes habitants' : 'Demander à l’admin'} desc={isAdmin ? 'Traiter les demandes de la maison' : 'Proposer un objet ou une configuration'} />
         <QuickLink to="/membres" icon={<User size={20} />} title="Membres" desc="Voir les membres de la maison" />
         <QuickLink to="/profil" icon={<TrendingUp size={20} />} title="Mon profil" desc="Gérer votre profil et vos points" />
         {isAdmin && <QuickLink to="/admin" icon={<Bell size={20} />} title="Demandes d'accès" desc="Valider ou refuser les habitants" />}
-        {canAccess('gestion') && (
-          <>
-            <QuickLink to="/gestion" icon={<Plus size={20} />} title="Ajouter un objet" desc="Créer et enregistrer un objet connecté" />
-            <QuickLink to="/gestion/rapports" icon={<BarChart2 size={20} />} title="Rapports" desc="Statistiques et rapports de la maison" />
-          </>
-        )}
+        {canUseGestion && <QuickLink to="/gestion" icon={<Plus size={20} />} title={canCreateDevices ? 'Ajouter un objet' : 'Piloter les objets'} desc={canCreateDevices ? 'Créer et enregistrer un objet connecté' : 'Activer ou désactiver les objets existants'} />}
+        {canSeeReports && <QuickLink to="/gestion/rapports" icon={<BarChart2 size={20} />} title="Rapports" desc="Statistiques et rapports de la maison" />}
       </div>
 
       <h2 className="section-title" style={{ fontSize: '1.2rem' }}>Objets actifs récents</h2>
       <div className="grid grid-3">
         {devices.filter(device => device.status === 'active').slice(0, 6).map(device => (
           <Link key={device.id} to={`/objets/${device.id}`} className="card card-clickable" style={{ padding: '1rem' }}>
-            <div className="flex items-center gap-2 mb-1">
-              <span className="status-dot active" aria-hidden="true" />
-              <strong style={{ fontSize: '.92rem' }}>{device.name}</strong>
+            <div style={{ display: 'flex', gap: '.75rem', alignItems: 'center' }}>
+              <DeviceThumb device={device} size={58} />
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="status-dot active" aria-hidden="true" />
+                  <strong style={{ fontSize: '.92rem' }}>{device.name}</strong>
+                </div>
+                <div className="flex gap-1" style={{ flexWrap: 'wrap' }}>
+                  <span className="badge badge-gray">{device.type}</span>
+                  <span className="badge badge-gray">{device.room}</span>
+                </div>
+                <p style={{ fontSize: '.8rem', color: 'var(--color-text-muted)', marginTop: '.4rem' }}>{device.brand}</p>
+              </div>
             </div>
-            <div className="flex gap-1" style={{ flexWrap: 'wrap' }}>
-              <span className="badge badge-gray">{device.type}</span>
-              <span className="badge badge-gray">{device.room}</span>
-            </div>
-            <p style={{ fontSize: '.8rem', color: 'var(--color-text-muted)', marginTop: '.4rem' }}>{device.brand}</p>
           </Link>
         ))}
       </div>
+    </div>
+  );
+}
+
+function ConsumptionPanel({ consumption, budget, currentConsumption, progress, isAdmin, signalMessage, onSignal }) {
+  if (!consumption) return null;
+
+  return (
+    <div className="card mb-4">
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap', marginBottom: '.75rem' }}>
+        <div>
+          <h2 style={{ fontSize: '1.1rem', fontWeight: 800 }}>Suivi consommation mensuelle</h2>
+          <p style={{ color: 'var(--color-text-muted)' }}>
+            {currentConsumption.toFixed(1)} kWh consommes {budget ? `sur ${budget.toFixed(1)} kWh` : ''}
+          </p>
+        </div>
+        {consumption.exceeded && <span className="badge badge-danger">Seuil depasse - maintenance activee</span>}
+      </div>
+      {budget > 0 && (
+        <div className="level-progress" aria-label={`Consommation : ${progress.toFixed(0)}%`}>
+          <div className="level-progress__bar" style={{ width: `${progress}%`, background: consumption.exceeded ? '#ef4444' : '#22c55e' }} />
+        </div>
+      )}
+      {signalMessage && <div className="alert alert-success mt-3" role="status">{signalMessage}</div>}
+      {consumption.warnings?.length > 0 && (
+        <div className="grid grid-3 mt-3">
+          {consumption.warnings.map(warning => (
+            <div key={warning.deviceId} className="card" style={{ padding: '1rem', background: '#fffbeb' }}>
+              <strong>{warning.deviceName}</strong>
+              <p style={{ fontSize: '.84rem', color: 'var(--color-text-muted)', margin: '.35rem 0' }}>{warning.message}</p>
+              <span className="badge badge-warning">{warning.consumptionKwh.toFixed(1)} kWh</span>
+              {!isAdmin && (
+                <button className="btn btn-outline btn-sm mt-2" onClick={() => onSignal(warning)}>
+                  <MessageSquare size={14} /> Signaler
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -156,6 +229,18 @@ function StatCard({ icon, value, label, color, iconColor }) {
       </div>
       <div style={{ fontSize: '1.5rem', fontWeight: 800, color: iconColor }}>{value}</div>
       <div style={{ fontSize: '.82rem', color: 'var(--color-text-muted)' }}>{label}</div>
+    </div>
+  );
+}
+
+function DeviceThumb({ device, size = 52 }) {
+  return (
+    <div style={{ width: size, height: size, borderRadius: 10, background: '#dbeafe', color: '#1a73e8', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flex: '0 0 auto' }} aria-hidden="true">
+      {device.photo ? (
+        <img src={device.photo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+      ) : (
+        <Cpu size={22} />
+      )}
     </div>
   );
 }

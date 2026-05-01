@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useDevices } from '../../context/DevicesContext';
-import { Users, Cpu, Settings, BarChart2, Shield, AlertTriangle, Check, X, KeyRound } from 'lucide-react';
+import { Users, Cpu, Settings, BarChart2, Shield, AlertTriangle, Check, X, KeyRound, MessageSquare } from 'lucide-react';
+import { formatDateTime } from '../../constants/smartHome';
 
 const LEVELS = ['Débutant', 'Intermédiaire', 'Avancé', 'Expert'];
 const LEVEL_POINTS = { Débutant: 0, Intermédiaire: 5, Avancé: 15, Expert: 30 };
@@ -11,8 +12,14 @@ const APP_ROLES = [
   { value: 'admin', label: 'Administrateur' },
 ];
 
+function getStatusBadge(status) {
+  if (status === 'approved') return { className: 'badge-success', label: 'Approuvé' };
+  if (status === 'rejected') return { className: 'badge-danger', label: 'Rejeté' };
+  return { className: 'badge-warning', label: 'En attente' };
+}
+
 export default function AdminDashboard() {
-  const { users, currentUser, updateUser, deleteUser }   = useAuth();
+  const { users, currentUser, updateUser, deleteUser, adminRequests, pendingAdminRequests, houseConsumption }   = useAuth();
   const { devices } = useDevices();
   const [rightsByUser, setRightsByUser] = useState({});
 
@@ -20,10 +27,14 @@ export default function AdminDashboard() {
   const pending  = pendingUsers.length;
   const approved = users.filter(u => u.status === 'approved').length;
   const lowBatt  = devices.filter(d => d.battery !== null && d.battery !== undefined && d.battery < 25).length;
+  const inProgressRequests = adminRequests.filter(request => request.status === 'en_cours').length;
+  const consumptionExceeded = Boolean(houseConsumption?.exceeded);
 
   const cards = [
     { to: '/admin/utilisateurs', icon: <Users size={28} />, label: 'Gestion Utilisateurs', value: `${approved} actifs`, extra: pending ? `${pending} en attente` : null, color: '#dbeafe', tc: '#1a73e8' },
     { to: '/admin/objets',       icon: <Cpu size={28} />,   label: 'Gestion Objets',       value: `${devices.length} objets`, extra: lowBatt ? `${lowBatt} batterie faible` : null, color: '#d1fae5', tc: '#22c55e' },
+    { to: '/admin/consommation', icon: <AlertTriangle size={28} />, label: 'Dépassements conso', value: consumptionExceeded ? 'Alerte active' : 'Historique', extra: houseConsumption ? `${Number(houseConsumption.consumptionKwh || 0).toFixed(1)} kWh` : null, color: '#fee2e2', tc: '#ef4444' },
+    { to: '/demandes-admin',     icon: <MessageSquare size={28} />, label: 'Demandes habitants', value: `${pendingAdminRequests} nouvelle(s)`, extra: inProgressRequests ? `${inProgressRequests} en cours` : null, color: '#fce7f3', tc: '#db2777' },
     { to: '/gestion/rapports',   icon: <BarChart2 size={28} />, label: 'Rapports',           value: 'Statistiques',     extra: null, color: '#fef3c7', tc: '#f59e0b' },
     { to: '/admin/parametres',   icon: <Settings size={28} />,  label: 'Paramètres',         value: 'Plateforme',       extra: null, color: '#ede9fe', tc: '#8b5cf6' },
   ];
@@ -116,7 +127,10 @@ export default function AdminDashboard() {
                       <select
                         className="form-select"
                         value={getRights(user).niveau}
-                        onChange={event => updateRights(user.id, { niveau: event.target.value })}
+                        onChange={event => updateRights(user.id, {
+                          niveau: event.target.value,
+                          points: LEVEL_POINTS[event.target.value] ?? 0,
+                        })}
                         disabled={getRights(user).rolee === 'admin'}
                         style={{ minWidth: 150 }}
                       >
@@ -130,6 +144,7 @@ export default function AdminDashboard() {
                         onChange={event => updateRights(user.id, {
                           rolee: event.target.value,
                           niveau: event.target.value === 'admin' ? 'Expert' : getRights(user).niveau,
+                          points: event.target.value === 'admin' ? LEVEL_POINTS.Expert : (LEVEL_POINTS[getRights(user).niveau] ?? user.points ?? 0),
                         })}
                         style={{ minWidth: 150 }}
                       >
@@ -187,22 +202,25 @@ export default function AdminDashboard() {
             </tr>
           </thead>
           <tbody>
-            {users.slice(0, 5).map(u => (
-              <tr key={u.id}>
-                <td style={{ fontWeight: 600 }}>@{u.login}</td>
-                <td>{u.prenom} {u.nom}</td>
-                <td><span className="badge badge-primary">{u.niveau}</span></td>
-                <td>{Number(u.points || 0).toFixed(2)}</td>
-                <td>
-                  <span className={`badge ${u.status === 'approved' ? 'badge-success' : 'badge-warning'}`}>
-                    {u.status === 'approved' ? 'Approuvé' : 'En attente'}
-                  </span>
-                </td>
-                <td style={{ fontSize: '.82rem', color: 'var(--color-text-muted)' }}>
-                  {u.lastLogin ? new Date(u.lastLogin).toLocaleDateString('fr-FR') : '—'}
-                </td>
-              </tr>
-            ))}
+            {users.slice(0, 5).map(u => {
+              const statusBadge = getStatusBadge(u.status);
+              return (
+                <tr key={u.id}>
+                  <td style={{ fontWeight: 600 }}>@{u.login}</td>
+                  <td>{u.prenom} {u.nom}</td>
+                  <td><span className="badge badge-primary">{u.niveau}</span></td>
+                  <td>{Number(u.points || 0).toFixed(2)}</td>
+                  <td>
+                    <span className={`badge ${statusBadge.className}`}>
+                      {statusBadge.label}
+                    </span>
+                  </td>
+                  <td style={{ fontSize: '.82rem', color: 'var(--color-text-muted)' }}>
+                    {formatDateTime(u.lastLogin)}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

@@ -52,33 +52,32 @@ router.get('/catalog', async (req, res) => {
 
     const sql = `
       SELECT
-        MIN(id) AS id,
+        id,
+        nom,
         type_obj,
         marque,
         type_connexion,
-        COUNT(*)::int AS example_count,
-        MIN(description) AS description
-      FROM objets
+        description,
+        photo,
+        feature
+      FROM catalogue_visiteur
       ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
-      GROUP BY type_obj, marque, type_connexion
-      ORDER BY type_obj, marque
+      ORDER BY nom
     `;
 
     const { rows } = await pool.query(sql, values);
     const catalog = rows
-      .map(row => {
-        const itemFeature = inferFeature(row.type_obj);
-        return {
-          id: `${row.type_obj}-${row.marque || 'generique'}-${row.type_connexion || 'standard'}`,
-          name: `${row.type_obj} ${row.marque || ''}`.trim(),
-          type: row.type_obj,
-          brand: row.marque || 'Générique',
-          connectivity: row.type_connexion || 'Non précisée',
-          feature: itemFeature,
-          description: row.description || catalogDescription(row.type_obj, itemFeature),
-          exampleCount: row.example_count,
-        };
-      })
+      .map(row => ({
+        id: row.id,
+        name: row.nom,
+        type: row.type_obj,
+        brand: row.marque || 'Générique',
+        connectivity: row.type_connexion || 'Non précisée',
+        feature: row.feature || inferFeature(row.type_obj),
+        description: row.description || catalogDescription(row.type_obj, row.feature),
+        exampleCount: 1,
+        photo: row.photo || null,
+      }))
       .filter(item => !feature || item.feature === feature);
 
     res.json(catalog);
@@ -91,9 +90,9 @@ router.get('/catalog', async (req, res) => {
 router.get('/catalog/filters', async (_req, res) => {
   try {
     const [types, brands, connectivities] = await Promise.all([
-      pool.query('SELECT DISTINCT type_obj AS value FROM objets WHERE type_obj IS NOT NULL ORDER BY type_obj'),
-      pool.query('SELECT DISTINCT marque AS value FROM objets WHERE marque IS NOT NULL ORDER BY marque'),
-      pool.query('SELECT DISTINCT type_connexion AS value FROM objets WHERE type_connexion IS NOT NULL ORDER BY type_connexion'),
+      pool.query('SELECT DISTINCT type_obj AS value FROM catalogue_visiteur WHERE type_obj IS NOT NULL ORDER BY type_obj'),
+      pool.query('SELECT DISTINCT marque AS value FROM catalogue_visiteur WHERE marque IS NOT NULL ORDER BY marque'),
+      pool.query('SELECT DISTINCT type_connexion AS value FROM catalogue_visiteur WHERE type_connexion IS NOT NULL ORDER BY type_connexion'),
     ]);
 
     res.json({

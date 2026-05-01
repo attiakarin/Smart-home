@@ -11,6 +11,10 @@ export default function LoginPage() {
   const [error, setError]   = useState('');
 
   const handleChange = e => setForm(f => ({ ...f, [e.target.name]: e.target.value }));
+  const fillTestAccount = () => {
+    setForm({ login: 'admin_martin', password: 'Admin2026!' });
+    setError('');
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -36,17 +40,6 @@ export default function LoginPage() {
           </div>
 
           {error && <div className="alert alert-error mb-3" role="alert">{error}</div>}
-
-          {/* Comptes de démonstration */}
-          <details className="mb-3" style={{ fontSize: '.82rem', background: '#f8fafc', borderRadius: 8, padding: '.75rem 1rem' }}>
-            <summary style={{ cursor: 'pointer', fontWeight: 600 }}>Comptes de démo</summary>
-            <ul style={{ marginTop: '.5rem', paddingLeft: '1rem', color: 'var(--color-text-muted)' }}>
-              <li><strong>admin_martin</strong> / Admin2026! — Expert (Admin)</li>
-              <li><strong>jerome_m</strong> / Maison2026! — Avancé (Gestion)</li>
-              <li><strong>lea_martin</strong> / Lea2026! — Intermédiaire</li>
-              <li><strong>tom_m</strong> / Tom2026! — Débutant</li>
-            </ul>
-          </details>
 
           <form onSubmit={handleSubmit} noValidate aria-label="Formulaire de connexion">
             <div className="form-group mb-3">
