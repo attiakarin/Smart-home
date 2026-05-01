@@ -22,7 +22,9 @@ const getHeaders = (includeAuth = true) => {
 const handleResponse = async (response) => {
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error || `Erreur HTTP ${response.status}`);
+    const error = new Error(errorData.error || `Erreur HTTP ${response.status}`);
+    Object.assign(error, errorData, { status: response.status });
+    throw error;
   }
   return response.json();
 };
@@ -45,13 +47,21 @@ export const authAPI = {
   },
 
   // Inscription
-  register: async (userData) => {
+  register: async (userData, options = {}) => {
+    const { persistSession = true } = options;
     const response = await fetch(`${API_BASE_URL}/auth/register`, {
       method: 'POST',
       headers: getHeaders(false),
       body: JSON.stringify(userData),
     });
-    return handleResponse(response);
+    const data = await handleResponse(response);
+    if (persistSession && data.token) localStorage.setItem('sh_token', data.token);
+    if (persistSession && data.user) localStorage.setItem('sh_current_user', JSON.stringify(data.user));
+    if (persistSession && !data.token) {
+      localStorage.removeItem('sh_token');
+      localStorage.removeItem('sh_current_user');
+    }
+    return data;
   },
 
   // Crée une maison et le compte admin associé
@@ -78,6 +88,16 @@ export const authAPI = {
       method: 'PUT',
       headers: getHeaders(true),
       body: JSON.stringify(profileData),
+    });
+    return handleResponse(response);
+  },
+
+  // Supprime definitivement le compte connecte
+  deleteMe: async (data) => {
+    const response = await fetch(`${API_BASE_URL}/auth/me`, {
+      method: 'DELETE',
+      headers: getHeaders(true),
+      body: JSON.stringify(data),
     });
     return handleResponse(response);
   },
@@ -176,10 +196,33 @@ export const usersAPI = {
     return handleResponse(response);
   },
 
+  getHouseAdmin: async () => {
+    const response = await fetch(`${API_BASE_URL}/users/house-admin`, {
+      headers: getHeaders(true),
+    });
+    return handleResponse(response);
+  },
+
+  getHouseAdmins: async () => {
+    const response = await fetch(`${API_BASE_URL}/users/house-admins`, {
+      headers: getHeaders(true),
+    });
+    return handleResponse(response);
+  },
+
   // Récupère un utilisateur
   getOne: async (id) => {
     const response = await fetch(`${API_BASE_URL}/users/${id}`, {
       headers: getHeaders(true),
+    });
+    return handleResponse(response);
+  },
+
+  create: async (userData) => {
+    const response = await fetch(`${API_BASE_URL}/users`, {
+      method: 'POST',
+      headers: getHeaders(true),
+      body: JSON.stringify(userData),
     });
     return handleResponse(response);
   },
@@ -198,6 +241,108 @@ export const usersAPI = {
   delete: async (id) => {
     const response = await fetch(`${API_BASE_URL}/users/${id}`, {
       method: 'DELETE',
+      headers: getHeaders(true),
+    });
+    return handleResponse(response);
+  },
+};
+
+// Parametres plateforme
+export const settingsAPI = {
+  get: async () => {
+    const response = await fetch(`${API_BASE_URL}/settings`, {
+      headers: getHeaders(true),
+    });
+    return handleResponse(response);
+  },
+
+  update: async (settings) => {
+    const response = await fetch(`${API_BASE_URL}/settings`, {
+      method: 'PUT',
+      headers: getHeaders(true),
+      body: JSON.stringify(settings),
+    });
+    return handleResponse(response);
+  },
+};
+
+export const requestsAPI = {
+  getAll: async () => {
+    const response = await fetch(`${API_BASE_URL}/requests`, {
+      headers: getHeaders(true),
+    });
+    return handleResponse(response);
+  },
+
+  getMine: async () => {
+    const response = await fetch(`${API_BASE_URL}/requests/mine`, {
+      headers: getHeaders(true),
+    });
+    return handleResponse(response);
+  },
+
+  markRepliesRead: async () => {
+    const response = await fetch(`${API_BASE_URL}/requests/mine/read-replies`, {
+      method: 'POST',
+      headers: getHeaders(true),
+    });
+    return handleResponse(response);
+  },
+
+  create: async (requestData) => {
+    const response = await fetch(`${API_BASE_URL}/requests`, {
+      method: 'POST',
+      headers: getHeaders(true),
+      body: JSON.stringify(requestData),
+    });
+    return handleResponse(response);
+  },
+
+  update: async (id, requestData) => {
+    const response = await fetch(`${API_BASE_URL}/requests/${id}`, {
+      method: 'PATCH',
+      headers: getHeaders(true),
+      body: JSON.stringify(requestData),
+    });
+    return handleResponse(response);
+  },
+
+  addMessage: async (id, message) => {
+    const response = await fetch(`${API_BASE_URL}/requests/${id}/messages`, {
+      method: 'POST',
+      headers: getHeaders(true),
+      body: JSON.stringify({ message }),
+    });
+    return handleResponse(response);
+  },
+};
+
+export const houseAPI = {
+  getConfig: async () => {
+    const response = await fetch(`${API_BASE_URL}/house/config`, {
+      headers: getHeaders(true),
+    });
+    return handleResponse(response);
+  },
+
+  updateConfig: async (config) => {
+    const response = await fetch(`${API_BASE_URL}/house/config`, {
+      method: 'PUT',
+      headers: getHeaders(true),
+      body: JSON.stringify(config),
+    });
+    return handleResponse(response);
+  },
+
+  getConsumption: async () => {
+    const response = await fetch(`${API_BASE_URL}/house/consumption`, {
+      headers: getHeaders(true),
+    });
+    return handleResponse(response);
+  },
+
+  getConsumptionHistory: async () => {
+    const response = await fetch(`${API_BASE_URL}/house/consumption/history`, {
       headers: getHeaders(true),
     });
     return handleResponse(response);

@@ -2,7 +2,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useDevices } from '../../context/DevicesContext';
 import { useAuth } from '../../context/AuthContext';
 import { useEffect } from 'react';
-import { ArrowLeft, Wifi, Battery, Thermometer, Zap, Clock } from 'lucide-react';
+import { ArrowLeft, Wifi, Battery, Thermometer, Zap, Clock, Cpu } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 
 export default function DeviceDetailPage() {
@@ -34,6 +34,13 @@ export default function DeviceDetailPage() {
         {/* Info principale */}
         <div>
           <div className="card mb-3">
+            <div className="device-detail-photo" aria-hidden={!device.photo}>
+              {device.photo ? (
+                <img src={device.photo} alt={`Photo de ${device.name}`} />
+              ) : (
+                <span><Cpu size={28} aria-hidden="true" /></span>
+              )}
+            </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '.75rem', marginBottom: '1rem' }}>
               <span style={{ width: 14, height: 14, borderRadius: '50%', background: statusColor, display: 'inline-block' }} aria-hidden="true" />
               <h1 style={{ fontSize: '1.25rem', fontWeight: 800 }}>{device.name}</h1>
@@ -111,6 +118,9 @@ export default function DeviceDetailPage() {
       </div>
 
       <style>{`
+        .device-detail-photo { height: 220px; border-radius: 10px; background: #f1f5f9; color: var(--color-primary); display: flex; align-items: center; justify-content: center; overflow: hidden; margin-bottom: 1rem; }
+        .device-detail-photo img { width: 100%; height: 100%; object-fit: cover; }
+        .device-detail-photo span { width: 58px; height: 58px; border-radius: 14px; background: #dbeafe; display: flex; align-items: center; justify-content: center; }
         .device-dl { display: grid; grid-template-columns: 1fr 1fr; gap: .6rem; }
         .device-dl > div { display: flex; flex-direction: column; }
         .device-dl dt { font-size: .73rem; color: var(--color-text-muted); text-transform: uppercase; letter-spacing: .04em; font-weight: 600; }

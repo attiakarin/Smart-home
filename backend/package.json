@@ -6,7 +6,9 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "nodemon --watch server.js --watch config --watch routes --watch middleware --watch utils server.js"
+    "dev": "nodemon --watch server.js --watch config --watch routes --watch middleware --watch utils server.js",
+    "seed:photos": "node scripts/seedObjectPhotos.js",
+    "seed:photos:force": "node scripts/seedObjectPhotos.js --force"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
@@ -15,7 +17,6 @@
     "express": "^4.19.2",
     "express-validator": "^7.1.0",
     "jsonwebtoken": "^9.0.2",
-    "nodemailer": "^6.9.14",
     "pg": "^8.20.0"
   },
   "devDependencies": {

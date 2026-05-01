@@ -82,6 +82,8 @@ SQL Editor de Supabase
 
 Il cree les tables principales dans Supabase/PostgreSQL et insere des donnees de test.
 
+Concernant les donnees, le projet utilise des jeux de donnees de demonstration realistes, inspires de generateurs de donnees en ligne, afin d'avoir des utilisateurs, objets, lieux, evenements et horaires plus credibles pendant les tests.
+
 ### Lancement frontend + backend
 
 Depuis la racine :

@@ -17,14 +17,65 @@ import {
   User,
   Wifi,
   Wrench,
+  X,
   Zap,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useDevices } from '../../context/DevicesContext';
-import { publicAPI } from '../../services/api';
+import { publicAPI, usersAPI, houseAPI, requestsAPI } from '../../services/api';
 import './HomePage.css';
 
 const ALL = 'Tous';
+
+const FALLBACK_FILTERS = {
+  types: [],
+  brands: [],
+  connectivities: [],
+  features: ['sécurité', 'confort', 'énergie', 'suivi', 'automatisation'],
+};
+
+const FALLBACK_SERVICES = [
+  {
+    id: 'fallback-automatisation',
+    name: 'Automatisations',
+    description: 'Créer des scénarios simples pour déclencher plusieurs objets selon une heure, un état ou une situation.',
+    service_type: 'automatisation',
+    min_niveau: 'Avancé',
+    categorie_nom: 'Scénarios',
+  },
+  {
+    id: 'fallback-securite',
+    name: 'Sécurité maison',
+    description: 'Surveiller les accès, consulter les alertes et suivre les objets sensibles de la maison.',
+    service_type: 'sécurité',
+    min_niveau: 'Avancé',
+    categorie_nom: 'Protection',
+  },
+  {
+    id: 'fallback-energie',
+    name: 'Suivi énergétique',
+    description: 'Identifier les appareils qui consomment le plus et suivre les indicateurs utiles au quotidien.',
+    service_type: 'énergie',
+    min_niveau: 'Intermédiaire',
+    categorie_nom: 'Consommation',
+  },
+  {
+    id: 'fallback-confort',
+    name: 'Confort connecté',
+    description: 'Piloter les équipements du quotidien comme l’éclairage, le chauffage ou les volets.',
+    service_type: 'confort',
+    min_niveau: 'Débutant',
+    categorie_nom: 'Maison',
+  },
+  {
+    id: 'fallback-suivi',
+    name: 'Suivi des objets',
+    description: 'Consulter l’état, la batterie et la dernière activité des objets connectés.',
+    service_type: 'suivi',
+    min_niveau: 'Débutant',
+    categorie_nom: 'Visualisation',
+  },
+];
 
 const GUIDE_CARDS = [
   {
@@ -32,18 +83,36 @@ const GUIDE_CARDS = [
     theme: 'confort',
     level: 'Débutant',
     text: 'Découvrez comment les objets, services et profils habitants fonctionnent ensemble.',
+    details: [
+      'Une maison connectée regroupe des objets comme les thermostats, capteurs, lampes, prises ou caméras.',
+      'Chaque objet remonte un état dans le tableau de bord: actif, inactif, batterie, connexion ou consommation.',
+      'Les habitants consultent les informations selon leur niveau, tandis que l’administrateur valide les accès et supervise la maison.',
+    ],
+    steps: ['Explorer le catalogue', 'Créer ou rejoindre une maison', 'Suivre les objets depuis le tableau de bord'],
   },
   {
     title: 'Optimiser sa consommation',
     theme: 'énergie',
     level: 'Intermédiaire',
     text: 'Repérez les équipements énergivores et suivez les bons indicateurs avant d’automatiser.',
+    details: [
+      'Commencez par comparer la consommation des objets qui restent actifs longtemps.',
+      'Surveillez les batteries faibles et les appareils inactifs pour éviter les mesures incorrectes.',
+      'Une fois les usages compris, vous pouvez ajuster les horaires, les seuils et les services associés.',
+    ],
+    steps: ['Identifier les appareils gourmands', 'Vérifier les alertes', 'Adapter les usages progressivement'],
   },
   {
     title: 'Sécuriser les accès',
     theme: 'sécurité',
     level: 'Avancé',
     text: 'Combinez caméras, capteurs et validations admin pour maîtriser les accès à la maison.',
+    details: [
+      'La sécurité combine les objets physiques, les comptes utilisateurs et les droits d’accès.',
+      'L’administrateur garde la main sur les demandes en attente et les niveaux de chaque habitant.',
+      'Les caméras, capteurs d’ouverture et alertes permettent de repérer rapidement une situation inhabituelle.',
+    ],
+    steps: ['Valider uniquement les membres connus', 'Contrôler les niveaux d’accès', 'Consulter les alertes régulièrement'],
   },
 ];
 
@@ -70,27 +139,58 @@ function PublicHome() {
   const [feature, setFeature] = useState(ALL);
   const [connectivity, setConnectivity] = useState(ALL);
   const [serviceCategory, setServiceCategory] = useState(ALL);
+  const [selectedService, setSelectedService] = useState(null);
   const [showFilters, setShowFilters] = useState(false);
+  const [activeGuide, setActiveGuide] = useState(null);
+
+  useEffect(() => {
+    if (!activeGuide) return undefined;
+
+    const handleKeyDown = event => {
+      if (event.key === 'Escape') setActiveGuide(null);
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [activeGuide]);
 
   useEffect(() => {
     const loadPublicData = async () => {
       setLoading(true);
       setError('');
-      try {
-        const [catalogData, filtersData, servicesData] = await Promise.all([
-          publicAPI.getCatalog(),
-          publicAPI.getCatalogFilters(),
-          publicAPI.getServices(),
-        ]);
-        setCatalog(catalogData);
-        setFilters(filtersData);
-        setServices(servicesData);
-      } catch (err) {
-        console.error('Erreur chargement catalogue public:', err);
-        setError('Impossible de charger le catalogue public pour le moment.');
-      } finally {
-        setLoading(false);
+      const [catalogResult, filtersResult, servicesResult] = await Promise.allSettled([
+        publicAPI.getCatalog(),
+        publicAPI.getCatalogFilters(),
+        publicAPI.getServices(),
+      ]);
+
+      if (catalogResult.status === 'fulfilled') {
+        setCatalog(catalogResult.value);
+      } else {
+        console.error('Erreur chargement catalogue public:', catalogResult.reason);
+        setCatalog([]);
       }
+
+      if (filtersResult.status === 'fulfilled') {
+        setFilters(filtersResult.value);
+      } else {
+        console.error('Erreur chargement filtres publics:', filtersResult.reason);
+        setFilters(FALLBACK_FILTERS);
+      }
+
+      if (servicesResult.status === 'fulfilled' && servicesResult.value.length > 0) {
+        setServices(servicesResult.value);
+      } else {
+        if (servicesResult.status === 'rejected') {
+          console.error('Erreur chargement services publics:', servicesResult.reason);
+        }
+        setServices(FALLBACK_SERVICES);
+      }
+
+      if (catalogResult.status === 'rejected' || filtersResult.status === 'rejected' || servicesResult.status === 'rejected') {
+        setError('Certaines données en ligne sont momentanément indisponibles. Les services restent consultables.');
+      }
+      setLoading(false);
     };
     loadPublicData();
   }, []);
@@ -151,11 +251,12 @@ function PublicHome() {
                 <div className="house-icon-chip"><Shield size={22} /><span>Sécurité</span></div>
                 <div className="house-icon-chip"><Zap size={22} /><span>Énergie</span></div>
               </div>
-              <div className="house-3d-placeholder">Maison</div>
+              <img className="house-3d-placeholder" src="/favicon.svg" alt="" />
             </div>
           </div>
         </div>
       </section>
+      
 
       <section id="catalogue" className="catalog-section">
         <div className="container">
@@ -225,15 +326,36 @@ function PublicHome() {
             </div>
             <FilterSelect label="Catégorie" value={serviceCategory} onChange={setServiceCategory} options={serviceCategories} />
           </div>
+          <div className="service-category-tabs" aria-label="Catégories de services">
+            {serviceCategories.map(category => (
+              <button
+                key={category}
+                type="button"
+                className={`service-category-tab ${serviceCategory === category ? 'is-active' : ''}`}
+                onClick={() => setServiceCategory(category)}
+              >
+                {category}
+              </button>
+            ))}
+          </div>
           <div className="service-strip" role="list">
             {filteredServices.map(service => (
-              <article key={service.id} className="service-public-card" role="listitem">
+              <button
+                key={service.id}
+                type="button"
+                className="service-public-card"
+                role="listitem"
+                onClick={() => setSelectedService(service)}
+              >
                 <span className="badge badge-primary">{service.service_type}</span>
                 <h3>{service.name}</h3>
                 <p>{service.description}</p>
                 <small>Niveau requis: {service.min_niveau}</small>
-              </article>
+              </button>
             ))}
+            {!loading && filteredServices.length === 0 && (
+              <p className="search-empty" style={{ gridColumn: '1 / -1' }}>Aucun service ne correspond à cette catégorie.</p>
+            )}
           </div>
         </div>
       </section>
@@ -242,14 +364,29 @@ function PublicHome() {
         <h2 id="guides-title" className="section-divider">Guides pour commencer</h2>
         <div className="grid grid-3">
           {GUIDE_CARDS.map(guide => (
-            <article key={guide.title} className="card">
+            <button
+              type="button"
+              key={guide.title}
+              className="card guide-card"
+              onClick={() => setActiveGuide(guide)}
+              aria-label={`Ouvrir le guide ${guide.title}`}
+            >
               <span className="badge badge-warning"><BookOpen size={12} aria-hidden="true" /> {guide.level}</span>
               <h3 style={{ fontSize: '1rem', fontWeight: 800, margin: '.75rem 0 .35rem' }}>{guide.title}</h3>
               <p style={{ color: 'var(--color-text-muted)', fontSize: '.88rem' }}>{guide.text}</p>
-            </article>
+              <span className="guide-card__hint">Lire le guide</span>
+            </button>
           ))}
         </div>
       </section>
+
+      {activeGuide && (
+        <GuideModal guide={activeGuide} onClose={() => setActiveGuide(null)} />
+      )}
+
+      {selectedService && (
+        <ServiceModal service={selectedService} onClose={() => setSelectedService(null)} />
+      )}
 
       <section className="cta-section container" aria-labelledby="cta-title">
         <p id="cta-title">Prêt à configurer votre propre maison connectée ?</p>
@@ -259,6 +396,90 @@ function PublicHome() {
             Demander l’accès <ArrowRight size={16} aria-hidden="true" />
           </Link>
         </div>
+      </section>
+    </div>
+  );
+}
+
+function ServiceModal({ service, onClose }) {
+  return (
+    <div className="modal-overlay guide-modal-overlay" role="presentation" onMouseDown={onClose}>
+      <section
+        className="modal guide-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="service-modal-title"
+        onMouseDown={event => event.stopPropagation()}
+      >
+        <header className="modal-header">
+          <div>
+            <span className="badge badge-primary">{service.service_type || 'Service'}</span>
+            <h2 id="service-modal-title">{service.name}</h2>
+          </div>
+          <button type="button" className="guide-modal__close" onClick={onClose} aria-label="Fermer le service">
+            <X size={20} aria-hidden="true" />
+          </button>
+        </header>
+        <div className="modal-body guide-modal__body">
+          <p className="guide-modal__intro">{service.description}</p>
+          <div className="guide-modal__steps" aria-label="Informations du service">
+            <div className="guide-modal__step">
+              <span>1</span>
+              <strong>Niveau requis: {service.min_niveau}</strong>
+            </div>
+            {service.categorie_nom && (
+              <div className="guide-modal__step">
+                <span>2</span>
+                <strong>Catégorie: {service.categorie_nom}</strong>
+              </div>
+            )}
+          </div>
+        </div>
+        <footer className="modal-footer">
+          <Link to="/inscription" className="btn btn-primary">Demander l'accès</Link>
+          <button type="button" className="btn btn-outline" onClick={onClose}>Fermer</button>
+        </footer>
+      </section>
+    </div>
+  );
+}
+
+function GuideModal({ guide, onClose }) {
+  return (
+    <div className="modal-overlay guide-modal-overlay" role="presentation" onMouseDown={onClose}>
+      <section
+        className="modal guide-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="guide-modal-title"
+        onMouseDown={event => event.stopPropagation()}
+      >
+        <header className="modal-header">
+          <div>
+            <span className="badge badge-warning"><BookOpen size={12} aria-hidden="true" /> {guide.level}</span>
+            <h2 id="guide-modal-title">{guide.title}</h2>
+          </div>
+          <button type="button" className="guide-modal__close" onClick={onClose} aria-label="Fermer le guide">
+            <X size={20} aria-hidden="true" />
+          </button>
+        </header>
+        <div className="modal-body guide-modal__body">
+          <p className="guide-modal__intro">{guide.text}</p>
+          <div className="guide-modal__details">
+            {guide.details.map(detail => <p key={detail}>{detail}</p>)}
+          </div>
+          <div className="guide-modal__steps" aria-label="Étapes conseillées">
+            {guide.steps.map((step, index) => (
+              <div key={step} className="guide-modal__step">
+                <span>{index + 1}</span>
+                <strong>{step}</strong>
+              </div>
+            ))}
+          </div>
+        </div>
+        <footer className="modal-footer">
+          <button type="button" className="btn btn-primary" onClick={onClose}>Compris</button>
+        </footer>
       </section>
     </div>
   );
@@ -278,7 +499,13 @@ function FilterSelect({ label, value, onChange, options }) {
 function CatalogCard({ item }) {
   return (
     <article className="catalog-card" role="listitem">
-      <div className="catalog-card__icon"><Cpu size={22} aria-hidden="true" /></div>
+      <div className="catalog-card__media">
+        {item.photo ? (
+          <img src={item.photo} alt={`Photo de ${item.name}`} />
+        ) : (
+          <div className="catalog-card__icon"><Cpu size={22} aria-hidden="true" /></div>
+        )}
+      </div>
       <div className="catalog-card__body">
         <div className="flex gap-2 mb-2" style={{ flexWrap: 'wrap' }}>
           <span className="badge badge-primary">{item.feature}</span>
@@ -297,11 +524,85 @@ function CatalogCard({ item }) {
 
 function ConnectedHome({ currentUser, users, devices, canAccess }) {
   const isAdmin = currentUser.appRole === 'admin';
+  const localHouseAdmins = useMemo(
+    () => users.filter(user => user.appRole === 'admin' && String(user.maisonId) === String(currentUser.maisonId)),
+    [users, currentUser.maisonId]
+  );
+  const [houseAdmins, setHouseAdmins] = useState(
+    localHouseAdmins.length > 0 ? localHouseAdmins : currentUser.houseAdmin ? [currentUser.houseAdmin] : []
+  );
   const pendingUsers = users.filter(user => user.status === 'pending');
   const inactiveDevices = devices.filter(device => device.status === 'inactive');
   const lowBatteryDevices = devices.filter(device => device.battery !== null && device.battery !== undefined && device.battery < 25);
   const activeDevices = devices.filter(device => device.status === 'active');
-  const totalEnergy = devices.reduce((sum, device) => sum + (device.energyConsumption > 0 ? device.energyConsumption : 0), 0).toFixed(1);
+  const totalEnergy = activeDevices.reduce((sum, device) => sum + (device.energyConsumption > 0 ? device.energyConsumption : 0), 0).toFixed(1);
+  const [maintenanceAlert, setMaintenanceAlert] = useState(null);
+  const [showMaintenanceModal, setShowMaintenanceModal] = useState(false);
+  const [consumptionHistory, setConsumptionHistory] = useState([]);
+  const [houseConfig, setHouseConfig] = useState(null);
+
+  useEffect(() => {
+    if (localHouseAdmins.length > 0) {
+      setHouseAdmins(localHouseAdmins);
+      return;
+    }
+    if (isAdmin || houseAdmins.length > 0) return;
+    let active = true;
+    usersAPI.getHouseAdmins()
+      .then(admins => {
+        if (active) setHouseAdmins(admins);
+      })
+      .catch(error => {
+        console.error('Erreur chargement administrateurs maison:', error);
+      });
+    return () => {
+      active = false;
+    };
+  }, [isAdmin, houseAdmins.length, localHouseAdmins]);
+
+  useEffect(() => {
+    let active = true;
+    async function loadMaintenance() {
+      try {
+        const [consRes, reqRes, histRes] = await Promise.allSettled([houseAPI.getConsumption(), requestsAPI.getMine(), isAdmin ? houseAPI.getConsumptionHistory() : Promise.resolve([])]);
+        if (!active) return;
+        const consumption = consRes.status === 'fulfilled' ? consRes.value : null;
+        const requests = reqRes.status === 'fulfilled' ? reqRes.value : [];
+        const history = histRes.status === 'fulfilled' ? histRes.value : [];
+        const maintenanceRequests = Array.isArray(requests) ? requests.filter(r => r.type === 'maintenance') : [];
+        
+        // N'afficher l'alerte que si elle n'est pas résolue ET si le dépassement est toujours actif
+        const isCurrentlyExceeded = consumption?.exceeded && !consumption?.resolved;
+        // Affiche la bannière uniquement si le dépassement est toujours actif (et qu'un budget est défini).
+        if (isCurrentlyExceeded && consumption?.budgetKwh > 0) {
+          setMaintenanceAlert({ consumption, maintenanceRequests });
+        } else {
+          setMaintenanceAlert(null);
+        }
+        
+        if (isAdmin && Array.isArray(history)) {
+          setConsumptionHistory(history);
+        }
+      } catch (err) {
+        console.error('Erreur chargement alertes maintenance:', err);
+      }
+    }
+    loadMaintenance();
+    const iv = setInterval(loadMaintenance, 60_000);
+    return () => { active = false; clearInterval(iv); };
+  }, [isAdmin]);
+
+  useEffect(() => {
+    const loadHouseConfig = async () => {
+      try {
+        const config = await houseAPI.getConfig();
+        setHouseConfig(config);
+      } catch (err) {
+        console.error('Erreur chargement config maison:', err);
+      }
+    };
+    loadHouseConfig();
+  }, []);
 
   return (
     <div className="home-page">
@@ -311,6 +612,18 @@ function ConnectedHome({ currentUser, users, devices, canAccess }) {
             <span className="badge badge-primary">{isAdmin ? 'Administrateur' : 'Habitant'}</span>
             <h1>Accueil de {currentUser.prenom}</h1>
             <p>{isAdmin ? `Vue de contrôle de ${currentUser.maisonNom || 'votre maison'}` : `Bienvenue dans ${currentUser.maisonNom || 'votre maison connectée'}`}</p>
+            {!isAdmin && houseAdmins.length > 0 && (
+              <p style={{ marginTop: '.5rem', color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center', gap: '.4rem', flexWrap: 'wrap' }}>
+                <Shield size={16} aria-hidden="true" />
+                Administrateur{houseAdmins.length > 1 ? 's' : ''} de la maison :
+                {houseAdmins.map((admin, index) => (
+                  <span key={admin.id || admin.login}>
+                    <strong style={{ color: 'var(--color-text)' }}>{admin.prenom} {admin.nom}</strong>
+                    <span> @{admin.login}</span>{index < houseAdmins.length - 1 ? ',' : ''}
+                  </span>
+                ))}
+              </p>
+            )}
           </div>
           {isAdmin && currentUser.maisonCode && (
             <div className="access-code-box">
@@ -319,6 +632,42 @@ function ConnectedHome({ currentUser, users, devices, canAccess }) {
             </div>
           )}
         </div>
+        {maintenanceAlert && maintenanceAlert.consumption?.budgetKwh > 0 && (
+          <div className="maintenance-banner" style={{ marginTop: '1rem' }}>
+            <div className="maintenance-banner__inner container">
+              <div className="maintenance-banner__text">
+                <strong>Alerte consommation</strong>
+                <span style={{ marginLeft: '.5rem' }}>
+                  La consommation mensuelle est de <strong>{maintenanceAlert.consumption?.consumptionKwh ?? '—'} kWh</strong>
+                  {maintenanceAlert.consumption?.budgetKwh ? ` pour un budget de ${maintenanceAlert.consumption.budgetKwh} kWh` : ''}.
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {houseConfig && (
+          <div className="card mb-4" style={{ background: '#f0f9ff', borderColor: '#0284c7' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+              <div style={{ fontSize: '2rem' }}>{houseConfig.housingType === 'appartement' ? '🏢' : '🏠'}</div>
+              <div>
+                <h3 style={{ fontSize: '.95rem', fontWeight: 700, margin: 0 }}>
+                  {houseConfig.housingType === 'appartement' ? 'Appartement' : 'Maison'} — {houseConfig.nbPieces} pièce{houseConfig.nbPieces > 1 ? 's' : ''}
+                </h3>
+                <p style={{ fontSize: '.85rem', color: 'var(--color-text-muted)', margin: '.2rem 0 0' }}>
+                  {houseConfig.budgetKwh > 0 ? `Budget énergétique: ${houseConfig.budgetKwh} kWh/mois` : 'Pas de budget énergétique défini'}
+                </p>
+                {isAdmin && <p style={{ fontSize: '.8rem', color: '#0284c7', margin: '.3rem 0 0', fontStyle: 'italic' }}>
+                  Modifiable dans les <Link to="/admin/parametres" style={{ color: '#0284c7', fontWeight: 600 }}>paramètres</Link>
+                </p>}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {isAdmin && consumptionHistory.length > 0 && (
+          <ConsumptionHistoryPanel history={consumptionHistory} currentConsumption={maintenanceAlert?.consumption} />
+        )}
 
         <div className="grid grid-4 mb-4">
           <StatTile icon={<Cpu size={20} />} value={devices.length} label="Objets" color="#1a73e8" />
@@ -335,7 +684,7 @@ function ConnectedHome({ currentUser, users, devices, canAccess }) {
               <QuickAction to="/objets" icon={<Cpu size={18} />} title="Objets connectés" desc="Consulter les équipements et leurs états." />
               <QuickAction to="/profil" icon={<User size={18} />} title="Profil" desc="Gérer vos informations et votre niveau." />
               <QuickAction to="/services" icon={<Wrench size={18} />} title="Services" desc="Rechercher les services de la maison." />
-              {canAccess('gestion') && <QuickAction to="/gestion" icon={<Settings size={18} />} title="Gestion" desc="Ajouter ou configurer des objets." />}
+              {canAccess('gestion') && <QuickAction to="/gestion" icon={<Settings size={18} />} title="Gestion" desc={canAccess('device_create') ? 'Ajouter ou configurer des objets.' : 'Activer ou désactiver les objets.'} />}
               {isAdmin && <QuickAction to="/admin" icon={<Shield size={18} />} title="Administration" desc="Valider les accès et gérer les membres." />}
             </div>
           </div>
@@ -350,6 +699,46 @@ function ConnectedHome({ currentUser, users, devices, canAccess }) {
           </div>
         </div>
       </section>
+    </div>
+  );
+}
+
+function ConsumptionHistoryPanel({ history, currentConsumption }) {
+  const recentAlerts = history.filter(item => item.alertAt).slice(0, 6);
+  
+  return (
+    <div className="card mb-4">
+      <h2 style={{ fontSize: '1.1rem', fontWeight: 800, marginBottom: '1rem' }}>Historique consommation</h2>
+      {recentAlerts.length > 0 ? (
+        <div className="table-wrapper" style={{ overflowX: 'auto' }}>
+          <table className="table" style={{ fontSize: '.85rem' }} aria-label="Historique de consommation">
+            <thead>
+              <tr>
+                <th scope="col">Mois</th>
+                <th scope="col">Conso. (kWh)</th>
+                <th scope="col">Budget (kWh)</th>
+                <th scope="col">Statut</th>
+              </tr>
+            </thead>
+            <tbody>
+              {recentAlerts.map(item => (
+                <tr key={item.month} style={{ opacity: item.resolvedAt ? 0.6 : 1 }}>
+                  <td style={{ fontWeight: 600 }}>{item.month}</td>
+                  <td>{Number(item.consumptionKwh || 0).toFixed(1)}</td>
+                  <td>{Number(item.budgetKwh || 0).toFixed(1)}</td>
+                  <td>
+                    <span className={`badge ${item.resolvedAt ? 'badge-success' : 'badge-danger'}`}>
+                      {item.resolvedAt ? '✓ Résolu' : '⚠ Dépassement'}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <p style={{ color: 'var(--color-text-muted)', fontSize: '.9rem' }}>Aucune alerte de consommation enregistrée.</p>
+      )}
     </div>
   );
 }

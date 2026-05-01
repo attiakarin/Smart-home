@@ -2,24 +2,36 @@ import { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, UserPlus, Trash2, Edit3, Check, X } from 'lucide-react';
+import { LEVEL_OPTIONS, LEVEL_POINTS, formatDateTime } from '../../constants/smartHome';
 
-const LEVELS = ['débutant', 'intermédiaire', 'avancé', 'expert'];
-const LEVEL_PTS = { débutant: 0, intermédiaire: 5, avancé: 15, expert: 30 };
 
 export default function AdminUsers() {
-  const levelOptions = ['Débutant', 'Intermédiaire', 'Avancé', 'Expert'];
-  const levelPoints = { Débutant: 0, Intermédiaire: 5, Avancé: 15, Expert: 30 };
+  const levelOptions = LEVEL_OPTIONS;
+  const levelPoints = LEVEL_POINTS;
   const appRoles = [
     { value: 'habitant', label: 'Habitant' },
     { value: 'admin', label: 'Administrateur' },
   ];
-  const { users, currentUser, updateUser, deleteUser, register } = useAuth();
+  const { users, updateUser, deleteUser, createUser } = useAuth();
   const [filter, setFilter]     = useState('all');
   const [editId, setEditId]     = useState(null);
   const [editForm, setEditForm] = useState({});
   const [deleteId, setDeleteId] = useState(null);
   const [showAdd, setShowAdd]   = useState(false);
-  const [addForm, setAddForm]   = useState({ login:'', prenom:'', nom:'', email:'', password:'', role:'père', niveau:'Débutant' });
+  const initialAddForm = {
+    login: '',
+    prenom: '',
+    nom: '',
+    email: '',
+    password: '',
+    role: 'enfant',
+    sexe: '-',
+    dateNaissance: '',
+    niveau: 'Débutant',
+    rolee: 'habitant',
+    points: 0,
+  };
+  const [addForm, setAddForm]   = useState(initialAddForm);
   const [addError, setAddError] = useState('');
   const [saved, setSaved]       = useState('');
 
@@ -32,17 +44,23 @@ export default function AdminUsers() {
     setEditForm({ niveau: u.niveau, role: u.role, rolee: u.appRole || 'habitant', points: u.points, status: u.status });
   };
 
-  const saveEdit = (id) => {
-    updateUser(id, {
-      niveau: editForm.rolee === 'admin' ? 'Expert' : editForm.niveau,
-      role: editForm.role,
-      rolee: editForm.rolee,
-      points: parseFloat(editForm.points) || 0,
-      status: editForm.status,
-    });
-    setEditId(null);
-    setSaved('Utilisateur mis à jour !');
-    setTimeout(() => setSaved(''), 2500);
+  const saveEdit = async (id) => {
+    try {
+      const nextNiveau = editForm.rolee === 'admin' ? 'Expert' : editForm.niveau;
+      await updateUser(id, {
+        niveau: nextNiveau,
+        role: editForm.role,
+        rolee: editForm.rolee,
+        points: levelPoints[nextNiveau] ?? 0,
+        status: editForm.status,
+      });
+      setEditId(null);
+      setSaved('Utilisateur mis à jour.');
+      setTimeout(() => setSaved(''), 2500);
+    } catch (err) {
+      setSaved('');
+      setAddError(err.message || 'Impossible de modifier cet utilisateur.');
+    }
   };
 
   const handleApprove = (user) => updateUser(user.id, {
@@ -51,21 +69,39 @@ export default function AdminUsers() {
     rolee: user.appRole || 'habitant',
     points: user.points || 0,
   });
-  const handleReject  = (id) => updateUser(id, { status: 'rejected' });
+  const handleReject = async (id) => {
+    try {
+      await updateUser(id, { status: 'rejected' });
+    } catch (err) {
+      setAddError(err.message || 'Impossible de rejeter cet utilisateur.');
+    }
+  };
 
   const handleAdd = async (e) => {
     e.preventDefault();
     setAddError('');
-    if (!addForm.login || !addForm.email || !addForm.password) { setAddError('Champs obligatoires manquants.'); return; }
-    const res = await register({ ...addForm, accessCode: currentUser?.maisonCode || 'MAISON2026', age: 0, sexe: 'Homme', dateNaissance: '', photo: null });
-    if (!res.success) { setAddError(res.error); return; }
-    // Auto-approve admin-created users
-    const newU = users[users.length - 1];
-    if (newU) updateUser(newU.id, { status: 'approved', niveau: addForm.niveau, rolee: 'habitant', points: levelPoints[addForm.niveau] });
-    setShowAdd(false);
-    setAddForm({ login:'', prenom:'', nom:'', email:'', password:'', role:'père', niveau:'Débutant' });
-    setSaved('Utilisateur créé et approuvé !');
-    setTimeout(() => setSaved(''), 2500);
+    if (!addForm.login || !addForm.email || !addForm.password || !addForm.nom || !addForm.prenom) {
+      setAddError('Pseudonyme, prénom, nom, email et mot de passe sont obligatoires.');
+      return;
+    }
+    try {
+      const rolee = addForm.rolee;
+      const niveau = rolee === 'admin' ? 'Expert' : addForm.niveau;
+      await createUser({
+        ...addForm,
+        rolee,
+        niveau,
+        points: rolee === 'admin' ? levelPoints.Expert : (Number(addForm.points) || levelPoints[niveau] || 0),
+        status: 'approved',
+        photo: null,
+      });
+      setShowAdd(false);
+      setAddForm(initialAddForm);
+      setSaved('Utilisateur créé et approuvé !');
+      setTimeout(() => setSaved(''), 2500);
+    } catch (err) {
+      setAddError(err.message || 'Impossible de créer cet utilisateur.');
+    }
   };
 
   return (
@@ -77,6 +113,7 @@ export default function AdminUsers() {
       </div>
 
       {saved && <div className="alert alert-success mb-3" role="status">{saved}</div>}
+      {addError && !showAdd && <div className="alert alert-error mb-3" role="alert">{addError}</div>}
 
       {/* Add form */}
       {showAdd && (
@@ -93,10 +130,42 @@ export default function AdminUsers() {
                 </div>
               ))}
               <div className="form-group">
+                <label className="form-label" htmlFor="au-role">Rôle dans la maison</label>
+                <select id="au-role" className="form-select" value={addForm.role} onChange={e => setAddForm(p => ({ ...p, role: e.target.value }))}>
+                  <option value="enfant">Enfant</option>
+                  <option value="mère">Mère</option>
+                  <option value="père">Père</option>
+                  <option value="autre">Autre</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label className="form-label" htmlFor="au-sexe">Genre</label>
+                <select id="au-sexe" className="form-select" value={addForm.sexe} onChange={e => setAddForm(p => ({ ...p, sexe: e.target.value }))}>
+                  <option value="-">Non précisé</option>
+                  <option value="F">Femme</option>
+                  <option value="H">Homme</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label className="form-label" htmlFor="au-date-naissance">Date de naissance</label>
+                <input id="au-date-naissance" type="date" className="form-input" value={addForm.dateNaissance} max={new Date().toISOString().slice(0, 10)} onChange={e => setAddForm(p => ({ ...p, dateNaissance: e.target.value }))} />
+                <span className="form-hint">Un administrateur peut ajouter un enfant de sa maison.</span>
+              </div>
+              <div className="form-group">
+                <label className="form-label" htmlFor="au-droits">Droits</label>
+                <select id="au-droits" className="form-select" value={addForm.rolee} onChange={e => setAddForm(p => ({ ...p, rolee: e.target.value, niveau: e.target.value === 'admin' ? 'Expert' : p.niveau }))}>
+                  {appRoles.map(role => <option key={role.value} value={role.value}>{role.label}</option>)}
+                </select>
+              </div>
+              <div className="form-group">
                 <label className="form-label" htmlFor="au-niveau">Niveau</label>
-                <select id="au-niveau" className="form-select" value={addForm.niveau} onChange={e => setAddForm(p => ({ ...p, niveau: e.target.value }))}>
+                <select id="au-niveau" className="form-select" value={addForm.niveau} onChange={e => setAddForm(p => ({ ...p, niveau: e.target.value, points: levelPoints[e.target.value] || 0 }))} disabled={addForm.rolee === 'admin'}>
                   {levelOptions.map(l => <option key={l}>{l}</option>)}
                 </select>
+              </div>
+              <div className="form-group">
+                <label className="form-label" htmlFor="au-points">Points</label>
+                <input id="au-points" type="number" step="0.25" min="0" className="form-input" value={addForm.rolee === 'admin' ? levelPoints.Expert : addForm.points} onChange={e => setAddForm(p => ({ ...p, points: e.target.value }))} disabled={addForm.rolee === 'admin'} />
               </div>
             </div>
             <div className="flex gap-2 mt-3">
@@ -138,7 +207,11 @@ export default function AdminUsers() {
                 <td>
                   {editId === u.id ? (
                     <select className="form-select" style={{ padding: '.2rem .5rem', fontSize: '.85rem' }}
-                      value={editForm.niveau} onChange={e => setEditForm(f => ({ ...f, niveau: e.target.value }))}>
+                      value={editForm.niveau} onChange={e => setEditForm(f => ({
+                        ...f,
+                        niveau: e.target.value,
+                        points: levelPoints[e.target.value] ?? 0,
+                      }))}>
                       {levelOptions.map(l => <option key={l}>{l}</option>)}
                     </select>
                   ) : (
@@ -152,6 +225,7 @@ export default function AdminUsers() {
                         ...f,
                         rolee: e.target.value,
                         niveau: e.target.value === 'admin' ? 'Expert' : f.niveau,
+                        points: e.target.value === 'admin' ? levelPoints.Expert : (levelPoints[f.niveau] ?? f.points),
                       }))}>
                       {appRoles.map(role => <option key={role.value} value={role.value}>{role.label}</option>)}
                     </select>
@@ -166,7 +240,7 @@ export default function AdminUsers() {
                   ) : Number(u.points || 0).toFixed(2)}
                 </td>
                 <td style={{ fontSize: '.82rem', color: 'var(--color-text-muted)' }}>
-                  {u.lastLogin ? new Date(u.lastLogin).toLocaleDateString('fr-FR', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Jamais'}
+                  {formatDateTime(u.lastLogin)}
                 </td>
                 <td>
                   <span className={`badge ${u.status === 'approved' ? 'badge-success' : u.status === 'pending' ? 'badge-warning' : 'badge-danger'}`}>
@@ -208,7 +282,7 @@ export default function AdminUsers() {
             </div>
             <div className="modal-footer">
               <button className="btn btn-ghost" onClick={() => setDeleteId(null)}>Annuler</button>
-              <button className="btn btn-danger" onClick={() => { deleteUser(deleteId); setDeleteId(null); }}>Supprimer</button>
+              <button className="btn btn-danger" onClick={async () => { try { await deleteUser(deleteId); setDeleteId(null); setSaved('Utilisateur supprimé.'); setTimeout(() => setSaved(''), 2500); } catch (err) { setDeleteId(null); setAddError(err.message || 'Impossible de supprimer cet utilisateur.'); } }}>Supprimer</button>
             </div>
           </div>
         </div>

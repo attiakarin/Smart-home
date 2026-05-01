@@ -9,6 +9,13 @@ import {
 
 const COLORS = ['#1a73e8','#34a853','#f9ab00','#ea4335','#8b5cf6','#ec4899','#06b6d4','#84cc16'];
 
+function formatDateKey(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 export default function ReportsPage() {
   const { devices } = useDevices();
   const { users }   = useAuth();
@@ -55,11 +62,11 @@ export default function ReportsPage() {
     .sort((a, b) => b.conso - a.conso)
     .slice(0, 8);
 
-  // Connexions des utilisateurs sur 7j (simulé)
+  // Connexions des utilisateurs sur les 7 derniers jours
   const connexionData = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date('2026-04-03');
+    const d = new Date();
     d.setDate(d.getDate() - (6 - i));
-    const dateStr = d.toISOString().split('T')[0];
+    const dateStr = formatDateKey(d);
     const total = users.reduce((s, u) => {
       const day = u.loginHistory?.find(h => h.date === dateStr);
       return s + (day?.connexions || 0);

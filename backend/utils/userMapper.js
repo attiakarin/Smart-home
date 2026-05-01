@@ -48,6 +48,13 @@ export function mapUser(user) {
     maisonId: safeUser.maison_id,
     maisonNom: safeUser.maison_nom,
     maisonCode: safeUser.rolee === 'admin' ? safeUser.code_acces : undefined,
+    houseAdmin: safeUser.admin_id ? {
+      id: safeUser.admin_id,
+      login: safeUser.admin_login,
+      prenom: safeUser.admin_prenom,
+      nom: safeUser.admin_nom,
+      email: safeUser.admin_email,
+    } : undefined,
     status: STATUS_TO_API[safeUser.statut] || safeUser.statut,
   };
 }

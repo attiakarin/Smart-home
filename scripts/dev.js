@@ -1,4 +1,30 @@
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
+
+const DEV_PORTS = [5000, 5173];
+
+function cleanupDevPorts() {
+  if (process.platform !== 'win32') return;
+
+  const result = spawnSync('netstat', ['-ano'], { encoding: 'utf8' });
+  if (result.error || !result.stdout) return;
+
+  const pids = new Set();
+  for (const line of result.stdout.split(/\r?\n/)) {
+    if (!line.includes('LISTENING')) continue;
+    const columns = line.trim().split(/\s+/);
+    const localAddress = columns[1] || '';
+    const pid = columns[columns.length - 1];
+    if (DEV_PORTS.some(port => localAddress.endsWith(`:${port}`)) && /^\d+$/.test(pid)) {
+      pids.add(pid);
+    }
+  }
+
+  for (const pid of pids) {
+    spawnSync('taskkill', ['/pid', pid, '/t', '/f'], { stdio: 'ignore' });
+  }
+}
+
+cleanupDevPorts();
 
 const commands = [
   { name: 'backend', command: 'npm --prefix backend run dev' },
@@ -10,6 +36,7 @@ const children = commands.map(({ name, command }) => {
     cwd: process.cwd(),
     env: process.env,
     shell: true,
+    detached: process.platform !== 'win32',
     stdio: ['inherit', 'pipe', 'pipe'],
   });
 
@@ -33,7 +60,13 @@ const children = commands.map(({ name, command }) => {
 
 function shutdown(code = 0) {
   for (const child of children) {
-    if (!child.killed) child.kill();
+    if (child.killed) continue;
+
+    if (process.platform === 'win32') {
+      spawnSync('taskkill', ['/pid', String(child.pid), '/t', '/f'], { stdio: 'ignore' });
+    } else {
+      process.kill(-child.pid, 'SIGTERM');
+    }
   }
   process.exit(code);
 }

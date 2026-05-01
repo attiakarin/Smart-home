@@ -1,4 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <rect width="100" height="100" rx="20" fill="#1a73e8"/>
-  <text y=".9em" font-size="80" x="10">🏠</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" role="img" aria-label="Maison connectée">
+  <path d="M14 48 50 18l36 30" fill="none" stroke="#1a73e8" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M25 46v34h50V46" fill="#ffffff" stroke="#1a73e8" stroke-width="7" stroke-linejoin="round"/>
+  <path d="M43 80V60h14v20" fill="#dbeafe" stroke="#1a73e8" stroke-width="6" stroke-linejoin="round"/>
+  <circle cx="68" cy="36" r="4" fill="#22c55e"/>
+  <path d="M61 29a12 12 0 0 1 14 0" fill="none" stroke="#22c55e" stroke-width="4" stroke-linecap="round"/>
+  <path d="M56 23a20 20 0 0 1 24 0" fill="none" stroke="#22c55e" stroke-width="4" stroke-linecap="round" opacity=".75"/>
 </svg>

@@ -4,12 +4,11 @@ import jwt from 'jsonwebtoken';
 import { body, validationResult } from 'express-validator';
 import pool from '../config/db.js';
 import { authenticate } from '../middleware/auth.js';
-import { sendWelcomeEmail } from '../config/mailer.js';
+import { getAppSettings } from '../config/appSettings.js';
 import { mapUser } from '../utils/userMapper.js';
 
 const router = Router();
 
-const POINTS_CONFIG = { connexion: 0.25, consultation: 0.50 };
 const LEVELS = {
   'Débutant': 0,
   'Intermédiaire': 5,
@@ -48,6 +47,45 @@ function calculateAge(dateValue) {
   return age >= 0 ? age : null;
 }
 
+function isFutureDate(dateValue) {
+  if (!dateValue) return false;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const date = new Date(dateValue);
+  if (Number.isNaN(date.getTime())) return true;
+  date.setHours(0, 0, 0, 0);
+  return date > today;
+}
+
+function isAdult(dateValue) {
+  const age = calculateAge(dateValue);
+  return age !== null && age >= 18;
+}
+
+function toDbGenre(value) {
+  if (value === undefined) return undefined;
+  if (value === null || value === '') return '-';
+  const normalized = value
+    .toString()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+  if (normalized === 'f' || normalized === 'femme') return 'F';
+  if (normalized === 'h' || normalized === 'homme') return 'H';
+  return '-';
+}
+
+function normalizeHousePieces(body) {
+  const defaults = ['Salon', 'Chambre', 'Cuisine', 'Salle de bain', 'Entree', 'Garage', 'Couloir'];
+  const nbPieces = Math.max(1, Number(body.nbPieces || 1));
+  const pieces = Array.isArray(body.pieces)
+    ? body.pieces.map(piece => String(piece || '').trim()).filter(Boolean).slice(0, 30)
+    : [];
+  return pieces.length > 0
+    ? pieces
+    : Array.from({ length: nbPieces }, (_, index) => defaults[index] || `Piece ${index + 1}`);
+}
+
 router.post('/login',
   body('login').notEmpty().trim(),
   body('password').notEmpty(),
@@ -59,14 +97,22 @@ router.post('/login',
 
     try {
       const { rows } = await pool.query(
-        `SELECT users.*, maisons.nom AS maison_nom, maisons.code_acces
+        `SELECT users.*, maisons.nom AS maison_nom, maisons.code_acces,
+                admin.id AS admin_id,
+                admin.pseudonyme AS admin_login,
+                admin.prenom AS admin_prenom,
+                admin.nom AS admin_nom,
+                admin.email AS admin_email
          FROM users
          LEFT JOIN maisons ON maisons.id = users.maison_id
-         WHERE pseudonyme = $1
+         LEFT JOIN users admin ON admin.maison_id = users.maison_id AND admin.rolee = 'admin'
+         WHERE users.pseudonyme = $1
+         ORDER BY admin.id ASC
          LIMIT 1`,
         [login]
       );
       const user = rows[0];
+      const settings = await getAppSettings(user?.maison_id);
 
       if (!user) return res.status(401).json({ error: 'Identifiants incorrects.' });
       const valid = await bcrypt.compare(password, user.mot_de_passe);
@@ -80,16 +126,24 @@ router.post('/login',
       if (user.statut !== 'Approuvé') {
         return res.status(403).json({ error: 'Votre compte n est pas encore actif.' });
       }
+      if (settings.maintenanceMode && user.rolee !== 'admin') {
+        return res.status(503).json({
+          error: "La maison est en maintenance. Merci d'attendre la fin de l'action de l'administrateur.",
+          maintenanceMode: true,
+        });
+      }
 
-      const newPoints = parseFloat((parseFloat(user.points) + POINTS_CONFIG.connexion).toFixed(2));
-      const newNiveau = computeLevel(newPoints);
+      const isAdmin = user.rolee === 'admin';
+      const newPoints = parseFloat((parseFloat(user.points) + settings.pointsConnexion).toFixed(2));
+      const finalPoints = isAdmin ? Math.max(newPoints, LEVELS.Expert) : newPoints;
+      const newNiveau = isAdmin ? 'Expert' : computeLevel(finalPoints);
       const now = new Date();
 
       await pool.query(
         `UPDATE users
          SET points = $1, niveau = $2, connexions = connexions + 1, derniere_connexion = $3
          WHERE id = $4`,
-        [newPoints, newNiveau, now, user.id]
+        [finalPoints, newNiveau, now, user.id]
       );
 
       await pool.query(
@@ -100,7 +154,16 @@ router.post('/login',
       const payload = { id: user.id, login: user.pseudonyme, niveau: newNiveau, rolee: user.rolee, maisonId: user.maison_id };
       const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN || '7d' });
 
-      res.json({ token, user: mapUser({ ...user, points: newPoints, niveau: newNiveau }) });
+      res.json({
+        token,
+        user: mapUser({
+          ...user,
+          points: finalPoints,
+          niveau: newNiveau,
+          connexions: Number(user.connexions || 0) + 1,
+          derniere_connexion: now,
+        }),
+      });
     } catch (err) {
       console.error('Erreur login :', err);
       res.status(500).json({ error: 'Erreur serveur.' });
@@ -122,6 +185,12 @@ router.post('/register',
     const { login, password, email, nom, prenom, sexe, role, accessCode } = req.body;
     const dateNaissance = normalizeDateOnly(req.body.dateNaissance ?? req.body.date_naissance);
     const age = calculateAge(dateNaissance);
+    if (isFutureDate(dateNaissance)) {
+      return res.status(400).json({ error: 'La date de naissance ne peut pas etre dans le futur.' });
+    }
+    if (!isAdult(dateNaissance)) {
+      return res.status(400).json({ error: 'Vous devez avoir au moins 18 ans pour vous inscrire.' });
+    }
 
     try {
       const existing = await pool.query(
@@ -133,33 +202,54 @@ router.post('/register',
       }
 
       const houses = await pool.query(
-        'SELECT id FROM maisons WHERE code_acces = $1 LIMIT 1',
+        'SELECT id, nom, code_acces FROM maisons WHERE code_acces = $1 LIMIT 1',
         [accessCode.trim().toUpperCase()]
       );
       const maison = houses.rows[0];
       if (!maison) {
         return res.status(404).json({ error: 'Code acces maison invalide.' });
       }
+      const settings = await getAppSettings(maison.id);
+      if (settings.maintenanceMode) {
+        return res.status(503).json({ error: 'Les inscriptions sont fermees pendant la maintenance.' });
+      }
 
       const passwordHash = await bcrypt.hash(password, 12);
+
+      const statut = settings.registrationAuto ? 'Approuv\u00e9' : 'Attente';
+      const message = settings.registrationAuto
+        ? "L'administrateur a confirme l'inscription automatiquement. Vous allez etre redirige vers votre compte."
+        : "Votre demande a ete envoyee a l'administrateur de la maison. Vous pourrez vous connecter apres validation.";
 
       const result = await pool.query(
         `INSERT INTO users (
           pseudonyme, mot_de_passe, email, nom, prenom, age, genre, date_naissance,
           rolee, role_maison, maison_id, niveau, points, statut, connexions, actions
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'habitant', $9, $10, 'Débutant', 0, 'Attente', 0, 0)
-        RETURNING id`,
-        [login, passwordHash, email, nom, prenom, age, sexe || null, dateNaissance, role || 'autre', maison.id]
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'habitant', $9, $10, 'Débutant', 0, $11, 0, 0)
+        RETURNING *`,
+        [login, passwordHash, email, nom, prenom, age, toDbGenre(sexe), dateNaissance, role || 'autre', maison.id, statut]
       );
 
-      try {
-        await sendWelcomeEmail(email, prenom);
-      } catch (mailErr) {
-        console.warn('Email non envoye :', mailErr.message);
+      if (settings.registrationAuto) {
+        const user = result.rows[0];
+        const payload = {
+          id: user.id,
+          login: user.pseudonyme,
+          niveau: user.niveau,
+          rolee: user.rolee,
+          maisonId: user.maison_id,
+        };
+        const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN || '7d' });
+        return res.status(201).json({
+          message,
+          autoApproved: true,
+          token,
+          user: mapUser({ ...user, maison_nom: maison.nom, code_acces: accessCode.trim().toUpperCase() }),
+        });
       }
 
-      res.status(201).json({ message: 'Inscription en attente de validation par un administrateur.', id: result.rows[0].id });
+      res.status(201).json({ message, id: result.rows[0].id, autoApproved: false });
     } catch (err) {
       console.error('Erreur register :', err.message);
       res.status(500).json({ error: 'Erreur serveur : ' + err.message });
@@ -179,11 +269,26 @@ router.post('/create-house',
     if (!errors.isEmpty()) return res.status(400).json({ error: 'Informations invalides.' });
 
     const { houseName, login, password, email, nom, prenom, sexe } = req.body;
+    const housingType = req.body.housingType === 'appartement' ? 'appartement' : 'maison';
+    const nbPieces = Math.max(1, Number(req.body.nbPieces || 1));
+    const budgetKwh = Math.max(0, Number(req.body.budgetKwh || 0));
+    const pieces = normalizeHousePieces({ ...req.body, nbPieces });
     const dateNaissance = normalizeDateOnly(req.body.dateNaissance ?? req.body.date_naissance);
     const age = calculateAge(dateNaissance);
+    if (isFutureDate(dateNaissance)) {
+      return res.status(400).json({ error: 'La date de naissance ne peut pas etre dans le futur.' });
+    }
+    if (!isAdult(dateNaissance)) {
+      return res.status(400).json({ error: 'Vous devez avoir au moins 18 ans pour creer une maison.' });
+    }
     const client = await pool.connect();
 
     try {
+      const settings = await getAppSettings();
+      if (settings.maintenanceMode) {
+        return res.status(503).json({ error: 'La creation de maison est fermee pendant la maintenance.' });
+      }
+
       await client.query('BEGIN');
 
       const existing = await client.query(
@@ -208,6 +313,21 @@ router.post('/create-house',
       );
 
       const houseId = houseResult.rows[0].id;
+      await client.query(
+        `CREATE TABLE IF NOT EXISTS maison_config (
+          maison_id INT PRIMARY KEY REFERENCES maisons(id) ON DELETE CASCADE,
+          logement_type VARCHAR(20) NOT NULL DEFAULT 'maison',
+          nb_pieces INT NOT NULL DEFAULT 1,
+          budget_kwh NUMERIC(10,2) NOT NULL DEFAULT 0,
+          pieces JSONB NOT NULL DEFAULT '[]'::jsonb,
+          updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+        )`
+      );
+      await client.query(
+        `INSERT INTO maison_config (maison_id, logement_type, nb_pieces, budget_kwh, pieces)
+         VALUES ($1, $2, $3, $4, $5::jsonb)`,
+        [houseId, housingType, nbPieces, budgetKwh, JSON.stringify(pieces)]
+      );
       const passwordHash = await bcrypt.hash(password, 12);
       const userResult = await client.query(
         `INSERT INTO users (
@@ -216,7 +336,7 @@ router.post('/create-house',
         )
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'admin', $9, $10, 'Expert', 30, 'Approuvé', 0, 0)
         RETURNING id`,
-        [login, passwordHash, email, nom, prenom, age, sexe || null, dateNaissance, 'admin', houseId]
+        [login, passwordHash, email, nom, prenom, age, toDbGenre(sexe), dateNaissance, 'admin', houseId]
       );
 
       await client.query('COMMIT');
@@ -241,9 +361,15 @@ router.get('/me', authenticate, async (req, res) => {
     const { rows } = await pool.query(
       `SELECT users.id, pseudonyme, email, users.nom, prenom, age, genre, date_naissance, rolee, role_maison, maison_id,
               niveau, points, photo, statut, connexions, actions, derniere_connexion,
-              maisons.nom AS maison_nom, maisons.code_acces
+              maisons.nom AS maison_nom, maisons.code_acces,
+              admin.id AS admin_id,
+              admin.pseudonyme AS admin_login,
+              admin.prenom AS admin_prenom,
+              admin.nom AS admin_nom,
+              admin.email AS admin_email
        FROM users
        LEFT JOIN maisons ON maisons.id = users.maison_id
+       LEFT JOIN users admin ON admin.maison_id = users.maison_id AND admin.rolee = 'admin'
        WHERE users.id = $1`,
       [req.user.id]
     );
@@ -257,6 +383,17 @@ router.get('/me', authenticate, async (req, res) => {
 router.put('/profile', authenticate, async (req, res) => {
   const { nom, prenom, genre, role, rolee, photo, password } = req.body;
   const dateNaissance = normalizeDateOnly(req.body.dateNaissance ?? req.body.date_naissance);
+  if (isFutureDate(dateNaissance)) {
+    return res.status(400).json({ error: 'La date de naissance ne peut pas etre dans le futur.' });
+  }
+  const currentUserResult = await pool.query('SELECT date_naissance FROM users WHERE id = $1', [req.user.id]);
+  const currentBirthDate = normalizeDateOnly(currentUserResult.rows[0]?.date_naissance);
+  if (!isAdult(currentBirthDate)) {
+    return res.status(403).json({ error: 'Vous devez avoir au moins 18 ans pour modifier votre profil.' });
+  }
+  if (dateNaissance !== undefined && !isAdult(dateNaissance)) {
+    return res.status(400).json({ error: 'La date de naissance doit correspondre a une personne majeure.' });
+  }
   const age = dateNaissance !== undefined ? calculateAge(dateNaissance) : req.body.age;
 
   try {
@@ -277,7 +414,7 @@ router.put('/profile', authenticate, async (req, res) => {
     if (nom !== undefined) addField('nom', nom);
     if (prenom !== undefined) addField('prenom', prenom);
     if (age !== undefined) addField('age', age);
-    if (genre !== undefined) addField('genre', genre);
+    if (genre !== undefined) addField('genre', toDbGenre(genre));
     if (dateNaissance !== undefined) addField('date_naissance', dateNaissance);
     if (role !== undefined) addField('role_maison', role);
     if (rolee !== undefined) addField('rolee', rolee);
@@ -296,19 +433,48 @@ router.put('/profile', authenticate, async (req, res) => {
   }
 });
 
+router.delete('/me', authenticate, async (req, res) => {
+  const { password, confirmation } = req.body || {};
+
+  if (confirmation !== 'SUPPRIMER') {
+    return res.status(400).json({ error: 'Confirmation invalide.' });
+  }
+  if (!password) {
+    return res.status(400).json({ error: 'Mot de passe requis.' });
+  }
+
+  try {
+    const { rows } = await pool.query('SELECT id, mot_de_passe FROM users WHERE id = $1', [req.user.id]);
+    const user = rows[0];
+    if (!user) return res.status(404).json({ error: 'Utilisateur introuvable.' });
+
+    const valid = await bcrypt.compare(password, user.mot_de_passe);
+    if (!valid) return res.status(401).json({ error: 'Mot de passe incorrect.' });
+
+    await pool.query('DELETE FROM users WHERE id = $1', [req.user.id]);
+    res.json({ message: 'Compte supprime definitivement.' });
+  } catch (err) {
+    console.error('Erreur suppression compte :', err);
+    res.status(500).json({ error: 'Erreur serveur.' });
+  }
+});
+
 router.post('/log-action', authenticate, async (req, res) => {
   try {
+    const settings = await getAppSettings();
     const { rows } = await pool.query('SELECT points, actions FROM users WHERE id = $1', [req.user.id]);
     if (!rows[0]) return res.status(404).json({ error: 'Utilisateur introuvable.' });
 
-    const newPoints = parseFloat((parseFloat(rows[0].points) + POINTS_CONFIG.consultation).toFixed(2));
-    const newNiveau = computeLevel(newPoints);
+    const isAdmin = req.user.rolee === 'admin';
+    const newPoints = parseFloat((parseFloat(rows[0].points) + settings.pointsConsultation).toFixed(2));
+    const finalPoints = isAdmin ? Math.max(newPoints, LEVELS.Expert) : newPoints;
+    const newNiveau = isAdmin ? 'Expert' : computeLevel(finalPoints);
 
     await pool.query(
       'UPDATE users SET actions = actions + 1, points = $1, niveau = $2 WHERE id = $3',
-      [newPoints, newNiveau, req.user.id]
+      [finalPoints, newNiveau, req.user.id]
     );
-    res.json({ points: newPoints, niveau: newNiveau, actions: Number(rows[0].actions || 0) + 1 });
+    res.json({ points: finalPoints, niveau: newNiveau, actions: Number(rows[0].actions || 0) + 1 });
   } catch (err) {
     res.status(500).json({ error: 'Erreur serveur.' });
   }

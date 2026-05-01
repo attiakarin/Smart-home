@@ -1,4 +1,5 @@
 import jwt from 'jsonwebtoken';
+import { getAppSettings } from '../config/appSettings.js';
 
 function normalizeLevel(niveau = '') {
   return niveau
@@ -8,7 +9,21 @@ function normalizeLevel(niveau = '') {
     .toLowerCase();
 }
 
-export function authenticate(req, res, next) {
+function levelRank(niveau = '') {
+  const ranks = {
+    debutant: 1,
+    intermediaire: 2,
+    avance: 3,
+    expert: 4,
+  };
+  return ranks[normalizeLevel(niveau)] || 0;
+}
+
+function hasMinLevel(niveau, minLevel) {
+  return levelRank(niveau) >= levelRank(minLevel);
+}
+
+export async function authenticate(req, res, next) {
   const authHeader = req.headers.authorization;
   const token = authHeader && authHeader.split(' ')[1];
 
@@ -18,24 +33,46 @@ export function authenticate(req, res, next) {
 
   try {
     req.user = jwt.verify(token, process.env.JWT_SECRET);
+    const isAdmin = normalizeLevel(req.user.niveau) === 'expert' && req.user.rolee === 'admin';
+    if (!isAdmin && req.user.maisonId) {
+      const settings = await getAppSettings(req.user.maisonId);
+      if (settings.maintenanceMode) {
+        return res.status(503).json({
+          error: "La maison est en maintenance. Merci d'attendre la fin de l'action de l'administrateur.",
+          maintenanceMode: true,
+        });
+      }
+    }
     next();
-  } catch {
-    return res.status(401).json({ error: 'Token invalide ou expire.' });
+  } catch (err) {
+    if (err?.message === 'jwt malformed' || err?.name === 'JsonWebTokenError' || err?.name === 'TokenExpiredError') {
+      return res.status(401).json({ error: 'Token invalide ou expire.' });
+    }
+    console.error('Erreur authentification:', err);
+    return res.status(500).json({ error: 'Erreur serveur.' });
   }
 }
 
 export function requireModule(module) {
   return (req, res, next) => {
-    const niveau = normalizeLevel(req.user?.niveau);
+    const niveau = req.user?.niveau;
+    const isAdmin = normalizeLevel(niveau) === 'expert' && req.user?.rolee === 'admin';
     const allowed = {
       information: true,
       visualisation: true,
-      gestion: niveau === 'avance' || niveau === 'expert',
-      administration: niveau === 'expert' && req.user?.rolee === 'admin',
+      gestion: hasMinLevel(niveau, 'intermediaire'),
+      device_toggle: hasMinLevel(niveau, 'intermediaire'),
+      device_create: hasMinLevel(niveau, 'avance'),
+      device_config: hasMinLevel(niveau, 'avance'),
+      reports: hasMinLevel(niveau, 'avance'),
+      device_delete: isAdmin,
+      administration: isAdmin,
+      users_manage: isAdmin,
+      settings_manage: isAdmin,
     };
 
     if (!allowed[module]) {
-      return res.status(403).json({ error: 'Acces refuse pour ce module.' });
+      return res.status(403).json({ error: 'Accès refusé pour ce module.' });
     }
 
     next();

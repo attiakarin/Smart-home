@@ -1,18 +1,29 @@
 import { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { User, Edit3, Save, X, Eye, EyeOff, Camera, Trash2 } from 'lucide-react';
-import { LEVELS } from '../../data/mockData';
+import { LEVELS, LEVEL_COLORS } from '../../constants/smartHome';
+function getTodayDateInput() {
+  return new Date().toISOString().slice(0, 10);
+}
 
 function calculateAge(dateValue) {
-  if (!dateValue) return '';
+  if (!dateValue) return null;
   const birthDate = new Date(dateValue);
-  if (Number.isNaN(birthDate.getTime())) return '';
+  if (Number.isNaN(birthDate.getTime())) return null;
   const today = new Date();
   let age = today.getFullYear() - birthDate.getFullYear();
   const monthDelta = today.getMonth() - birthDate.getMonth();
   if (monthDelta < 0 || (monthDelta === 0 && today.getDate() < birthDate.getDate())) age -= 1;
-  return age >= 0 ? String(age) : '';
+  return age >= 0 ? age : null;
 }
+
+function getAdultMaxBirthDate() {
+  const date = new Date();
+  date.setFullYear(date.getFullYear() - 18);
+  return date.toISOString().slice(0, 10);
+}
+
+
 
 export default function ProfilePage() {
   const { currentUser, updateUser, computeLevel, users } = useAuth();
@@ -21,8 +32,7 @@ export default function ProfilePage() {
   const [form, setForm] = useState({
     login: currentUser.login,
     prenom: currentUser.prenom,
-    nom: currentUser.nom,
-    age: currentUser.age,
+    nom: currentUser.nom,
     sexe: currentUser.sexe,
     dateNaissance: currentUser.dateNaissance,
     role: currentUser.role,
@@ -31,10 +41,15 @@ export default function ProfilePage() {
   });
   const [success, setSuccess] = useState('');
   const [error, setError]   = useState('');
+  const maxBirthDate = getAdultMaxBirthDate();
+  const age = calculateAge(currentUser.dateNaissance);
+  const canEditProfile = age === null || age >= 18;
+  const houseAdmins = users.filter(user => user.appRole === 'admin' && String(user.maisonId) === String(currentUser.maisonId));
+  const showHouseAdmins = currentUser.appRole !== 'admin' && houseAdmins.length > 0;
 
-  const levelColors = { débutant:'#6b7280', intermédiaire:'#3b82f6', avancé:'#8b5cf6', expert:'#f59e0b' };
-  const nextLevels  = { débutant:'intermédiaire', intermédiaire:'avancé', avancé:'expert', expert:null };
-  const nextLvl     = nextLevels[currentUser.niveau];
+  const levelColors = LEVEL_COLORS;
+  const nextLevels  = { débutant: 'Intermédiaire', intermédiaire: 'Avancé', avancé: 'Expert', expert: null };
+  const nextLvl     = nextLevels[currentUser.niveau?.toLowerCase()];
   const nextPts     = nextLvl ? LEVELS[nextLvl].points : null;
   const progress    = nextPts ? Math.min(100, (currentUser.points / nextPts) * 100).toFixed(0) : 100;
 
@@ -42,8 +57,7 @@ export default function ProfilePage() {
     const { name, value } = e.target;
     setForm(f => ({
       ...f,
-      [name]: value,
-      ...(name === 'dateNaissance' ? { age: calculateAge(value) } : {}),
+      [name]: value,
     }));
   };
 
@@ -74,6 +88,14 @@ export default function ProfilePage() {
       setError('Le nouveau mot de passe doit faire au moins 8 caractères.');
       return;
     }
+    if (!canEditProfile) {
+      setError('Vous devez avoir au moins 18 ans pour modifier votre profil.');
+      return;
+    }
+    if (calculateAge(form.dateNaissance) < 18) {
+      setError('La date de naissance doit correspondre à une personne majeure.');
+      return;
+    }
     // Check login uniqueness
     const conflict = users.find(u => u.login === form.login && u.id !== currentUser.id);
     if (conflict) { setError('Ce login est déjà utilisé.'); return; }
@@ -81,8 +103,7 @@ export default function ProfilePage() {
     const updates = {
       login: form.login,
       prenom: form.prenom,
-      nom: form.nom,
-      age: calculateAge(form.dateNaissance) || 0,
+      nom: form.nom,
       sexe: form.sexe,
       dateNaissance: form.dateNaissance,
       role: form.role,
@@ -137,12 +158,18 @@ export default function ProfilePage() {
                 {currentUser.niveau}
               </span>
             </div>
-            {!editing && (
+            {!editing && canEditProfile && (
               <button className="btn btn-outline btn-sm" style={{ marginLeft: 'auto' }} onClick={() => setEditing(true)}>
                 <Edit3 size={14} /> Modifier
               </button>
             )}
           </div>
+
+          {!canEditProfile && (
+            <div className="alert alert-info mb-3" role="status">
+              Ce compte appartient à un mineur. Le profil pourra être modifié à partir de 18 ans.
+            </div>
+          )}
 
           {/* Profil public */}
           {!editing ? (
@@ -152,6 +179,19 @@ export default function ProfilePage() {
               <div><dt>Âge</dt><dd>{currentUser.age} ans</dd></div>
               <div><dt>Sexe</dt><dd>{currentUser.sexe}</dd></div>
               <div><dt>Date de naissance</dt><dd>{currentUser.dateNaissance}</dd></div>
+              {showHouseAdmins && (
+                <div>
+                  <dt>Administrateur{houseAdmins.length > 1 ? 's' : ''}</dt>
+                  <dd>
+                    {houseAdmins.map((admin, index) => (
+                      <span key={admin.id}>
+                        {admin.prenom} {admin.nom} <span style={{ color: 'var(--color-text-muted)' }}>@{admin.login}</span>
+                        {index < houseAdmins.length - 1 ? ', ' : ''}
+                      </span>
+                    ))}
+                  </dd>
+                </div>
+              )}
               <div><dt>Connexions</dt><dd>{currentUser.connexions}</dd></div>
               <div><dt>Actions</dt><dd>{currentUser.actions}</dd></div>
             </dl>
@@ -198,10 +238,6 @@ export default function ProfilePage() {
                   <input id="p-nom" name="nom" className="form-input" value={form.nom} onChange={handleChange} />
                 </div>
                 <div className="form-group">
-                  <label className="form-label" htmlFor="p-age">Âge</label>
-                  <input id="p-age" name="age" type="number" className="form-input" value={form.age} readOnly />
-                </div>
-                <div className="form-group">
                   <label className="form-label" htmlFor="p-sexe">Sexe</label>
                   <select id="p-sexe" name="sexe" className="form-select" value={form.sexe} onChange={handleChange}>
                     <option>Homme</option><option>Femme</option><option>Non-binaire</option><option>Préfère ne pas préciser</option>
@@ -209,7 +245,7 @@ export default function ProfilePage() {
                 </div>
                 <div className="form-group">
                   <label className="form-label" htmlFor="p-dob">Date de naissance</label>
-                  <input id="p-dob" name="dateNaissance" type="date" className="form-input" value={form.dateNaissance} onChange={handleChange} />
+                  <input id="p-dob" name="dateNaissance" type="date" className="form-input" value={form.dateNaissance} onChange={handleChange} max={maxBirthDate} />
                 </div>
                 <div className="form-group" style={{ position: 'relative' }}>
                   <label className="form-label" htmlFor="p-pw">Nouveau mot de passe</label>
