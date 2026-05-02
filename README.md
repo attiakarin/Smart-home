@@ -1,3 +1,3 @@
 # Smart-home
 
-Contribution de Djedjiga : Ajout de fonctionnalités pour la gestion des appareils.
+Contribution de Djedjiga : Ajout de fonctionnalités pour la gestion des appareils.Contribution Djedjiga : commit ajout� pour compter comme contributeur.
