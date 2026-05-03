@@ -1,3 +1,4 @@
+// Contribution Djedjiga : Amélioration de la page d'accueil
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
