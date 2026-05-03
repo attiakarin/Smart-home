@@ -1,3 +1,4 @@
+// Contribution Djedjiga : Amélioration de l'interface frontend
 import { BrowserRouter, Routes, Route, Navigate, Link } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { DevicesProvider } from './context/DevicesContext';
