@@ -15,9 +15,9 @@ function normalizeUser(user) {
 
 const LEVELS = {
   'Débutant':      0,
-  'Intermédiaire': 5,
-  'Avancé':        15,
-  'Expert':        30,
+  'Intermédiaire': 25,
+  'Avancé':        50,
+  'Expert':        75,
 };
 
 const DEFAULT_SETTINGS = {
@@ -382,6 +382,7 @@ export function AuthProvider({ children }) {
   const canAccess = useCallback((module) => {
     if (!currentUser) return module === 'information';
     const isAdmin = currentUser.appRole === 'admin' && normalizeLevelName(currentUser.niveau) === 'expert';
+    const isExpertResident = currentUser.appRole === 'habitant' && normalizeLevelName(currentUser.niveau) === 'expert';
     switch (module) {
       case 'information':    return true;
       case 'visualisation':  return true;
@@ -390,7 +391,7 @@ export function AuthProvider({ children }) {
       case 'device_create':  return hasMinLevel(currentUser, 'avance');
       case 'device_config':  return hasMinLevel(currentUser, 'avance');
       case 'reports':        return hasMinLevel(currentUser, 'avance');
-      case 'device_delete':  return isAdmin;
+      case 'device_delete':  return isAdmin || isExpertResident;
       case 'administration': return isAdmin;
       case 'users_manage':   return isAdmin;
       case 'settings_manage': return isAdmin;

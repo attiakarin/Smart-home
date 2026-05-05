@@ -4,11 +4,11 @@ import { Link } from 'react-router-dom';
 import { ArrowLeft, UserPlus, Trash2, Edit3, Check, X } from 'lucide-react';
 
 const LEVELS = ['débutant', 'intermédiaire', 'avancé', 'expert'];
-const LEVEL_PTS = { débutant: 0, intermédiaire: 5, avancé: 15, expert: 30 };
+const LEVEL_PTS = { débutant: 0, intermédiaire: 25, avancé: 50, expert: 75 };
 
 export default function AdminUsers() {
   const levelOptions = ['Débutant', 'Intermédiaire', 'Avancé', 'Expert'];
-  const levelPoints = { Débutant: 0, Intermédiaire: 5, Avancé: 15, Expert: 30 };
+  const levelPoints = { Débutant: 0, Intermédiaire: 25, Avancé: 50, Expert: 75 };
   const appRoles = [
     { value: 'habitant', label: 'Habitant' },
     { value: 'admin', label: 'Administrateur' },

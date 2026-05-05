@@ -73,10 +73,10 @@ Ces comptes sont pré-chargés dans l'application (données mockées).
 
 | Prénom   | Login            | Mot de passe  | Niveau        | Accès              |
 |----------|------------------|---------------|---------------|--------------------|
-| Sophie   | `admin_martin`   | `Admin2026!`  | Expert (42.5 pts)  | Tout (admin inclus) |
-| Jérôme   | `jerome_m`       | `Maison2026!` | Avancé (18.75 pts) | Info + Visu + Gestion |
-| Léa      | `lea_martin`     | `Lea2026!`    | Intermédiaire (8.5 pts) | Info + Visu |
-| Tom      | `tom_m`          | `Tom2026!`    | Débutant (2.25 pts)     | Info + Visu |
+| Sophie   | `admin_martin`   | `Admin2026!`  | Expert (75 pts)  | Tout (admin inclus) |
+| Jérôme   | `jerome_m`       | `Maison2026!` | Avancé (50 pts) | Info + Visu + Gestion |
+| Léa      | `lea_martin`     | `Lea2026!`    | Intermédiaire (25 pts) | Info + Visu |
+| Tom      | `tom_m`          | `Tom2026!`    | Débutant (0 pts)     | Info + Visu |
 
 ### Compte en attente
 | Prénom | Login     | Mot de passe | Statut  |
@@ -94,9 +94,9 @@ Chaque action en application rapporte des points qui débloquent des modules sup
 | Niveau        | Points requis | Couleur   | Modules accessibles          |
 |---------------|---------------|-----------|------------------------------|
 | Débutant      | 0 pts         | Gris      | Information + Visualisation  |
-| Intermédiaire | 5 pts         | Bleu      | Information + Visualisation  |
-| Avancé        | 15 pts        | Violet    | + Module Gestion             |
-| Expert        | 30 pts        | Orange    | + Module Administration      |
+| Intermédiaire | 25 pts        | Bleu      | Information + Visualisation  |
+| Avancé        | 50 pts        | Violet    | + Module Gestion             |
+| Expert        | 75 pts        | Orange    | + Module Administration      |
 
 ### Comment gagner des points
 

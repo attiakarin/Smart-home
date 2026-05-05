@@ -11,9 +11,9 @@ const router = Router();
 
 const LEVELS = {
   'Débutant': 0,
-  'Intermédiaire': 5,
-  'Avancé': 15,
-  Expert: 30,
+  'Intermédiaire': 25,
+  'Avancé': 50,
+  Expert: 75,
 };
 
 function generateHouseCode() {
@@ -334,7 +334,7 @@ router.post('/create-house',
           pseudonyme, mot_de_passe, email, nom, prenom, age, genre, date_naissance,
           rolee, role_maison, maison_id, niveau, points, statut, connexions, actions
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'admin', $9, $10, 'Expert', 30, 'Approuvé', 0, 0)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'admin', $9, $10, 'Expert', 75, 'Approuvé', 0, 0)
         RETURNING id`,
         [login, passwordHash, email, nom, prenom, age, toDbGenre(sexe), dateNaissance, 'admin', houseId]
       );
