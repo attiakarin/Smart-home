@@ -15,9 +15,9 @@ function normalizeUser(user) {
 
 const LEVELS = {
   'Débutant':      0,
-  'Intermédiaire': 5,
-  'Avancé':        15,
-  'Expert':        30,
+  'Intermédiaire': 25,
+  'Avancé':        50,
+  'Expert':        75,
 };
 
 const DEFAULT_SETTINGS = {

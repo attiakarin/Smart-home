@@ -56,9 +56,9 @@ function normalizeLevel(value = '') {
 }
 
 function computeLevel(points) {
-  if (points >= 30) return 'Expert';
-  if (points >= 15) return 'Avanc\u00e9';
-  if (points >= 5) return 'Interm\u00e9diaire';
+  if (points >= 75) return 'Expert';
+  if (points >= 50) return 'Avanc\u00e9';
+  if (points >= 25) return 'Interm\u00e9diaire';
   return 'D\u00e9butant';
 }
 
