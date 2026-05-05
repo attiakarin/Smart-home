@@ -242,7 +242,7 @@ export default function AdminSettings() {
               <button type="submit" className="btn btn-primary"><Save size={15} /> Sauvegarder</button>
             </>
           ) : (
-            <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--color-text-muted)' }}>Chargement...</div>
+            <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--color-text-muted)' }}>Chargement…</div>
           )}
         </form>
           {config.maintenanceMode && (

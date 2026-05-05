@@ -216,7 +216,7 @@ export default function AdminRequestsPage() {
 
       <div className="grid grid-2">
         {loading ? (
-          <p className="card" style={{ color: 'var(--color-text-muted)' }}>Chargement des demandes...</p>
+          <p className="card" style={{ color: 'var(--color-text-muted)' }}>Chargement des demandes…</p>
         ) : requests.length === 0 ? (
           <p className="card" style={{ color: 'var(--color-text-muted)' }}>Aucune demande pour le moment.</p>
         ) : requests.map(request => {

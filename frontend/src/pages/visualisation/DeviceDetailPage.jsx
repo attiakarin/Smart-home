@@ -2,8 +2,17 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useDevices } from '../../context/DevicesContext';
 import { useAuth } from '../../context/AuthContext';
 import { useEffect } from 'react';
-import { ArrowLeft, Wifi, Battery, Thermometer, Zap, Clock, Cpu } from 'lucide-react';
+import { ArrowLeft, Lock, Wifi, Battery, Thermometer, Zap, Clock, Cpu } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
+
+// ── Limite de consommation autorisée selon le niveau ─────────────────────────
+function getEnergyLimit(niveau) {
+  const n = (niveau ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  if (n === 'debutant')      return 100;
+  if (n === 'intermediaire') return 150;
+  if (n === 'avance')        return 200;
+  return Infinity; // Expert
+}
 
 export default function DeviceDetailPage() {
   const { id } = useParams();
@@ -12,14 +21,71 @@ export default function DeviceDetailPage() {
   const navigate = useNavigate();
   const device = getDevice(id);
 
+  const energyLimit = getEnergyLimit(currentUser?.niveau);
+  const locked = device && Number(device.energyConsumption || 0) > energyLimit;
+
   useEffect(() => {
-    if (device) logAction(currentUser.id);
+    if (device && !locked) logAction(currentUser.id);
   }, [id]); // eslint-disable-line
 
   if (!device) return (
     <div className="container section text-center animate-fade">
       <p>Objet introuvable.</p>
       <Link to="/objets" className="btn btn-outline mt-3">← Retour</Link>
+    </div>
+  );
+
+  // ── Accès restreint ─────────────────────────────────────────────────────────
+  if (locked) return (
+    <div className="container section animate-fade" style={{ maxWidth: 520, margin: '0 auto' }}>
+      <Link to="/objets" className="btn btn-ghost btn-sm mb-4">
+        <ArrowLeft size={15} aria-hidden="true" /> Retour aux objets
+      </Link>
+      <div
+        className="card text-center"
+        style={{ padding: '2.5rem 2rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}
+      >
+        <div
+          style={{
+            width: 72, height: 72, borderRadius: '50%',
+            background: '#f1f5f9',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}
+          aria-hidden="true"
+        >
+          <Lock size={34} color="#94a3b8" />
+        </div>
+        <h1 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#475569' }}>
+          Accès restreint
+        </h1>
+        <p style={{ color: '#64748b', lineHeight: 1.7, maxWidth: 360 }}>
+          Vous n'avez pas le niveau requis pour consulter cet objet.
+          Sa consommation dépasse la limite autorisée pour votre niveau actuel.
+        </p>
+        <div
+          style={{
+            display: 'flex', flexDirection: 'column', gap: '.4rem',
+            background: '#f8fafc', border: '1px solid #e2e8f0',
+            borderRadius: 'var(--radius)', padding: '.75rem 1.2rem',
+            width: '100%', maxWidth: 280, fontSize: '.88rem',
+          }}
+        >
+          <div className="flex items-center" style={{ justifyContent: 'space-between' }}>
+            <span style={{ color: '#64748b' }}>Votre niveau</span>
+            <span className="badge badge-primary">{currentUser?.niveau ?? '—'}</span>
+          </div>
+          <div className="flex items-center" style={{ justifyContent: 'space-between' }}>
+            <span style={{ color: '#64748b' }}>Limite autorisée</span>
+            <span className="badge badge-gray">{energyLimit} kWh</span>
+          </div>
+        </div>
+        <p style={{ fontSize: '.82rem', color: '#94a3b8' }}>
+          Continuez à accumuler des points pour débloquer l'accès aux objets plus puissants.
+        </p>
+        <Link to="/objets" className="btn btn-primary mt-2">
+          ← Retour à la liste
+        </Link>
+      </div>
     </div>
   );
 

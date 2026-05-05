@@ -49,9 +49,9 @@ export default function DashboardPage() {
         title: `Prevention consommation - ${warning.deviceName}`,
         message: `${warning.message}\nConsommation estimee: ${warning.consumptionKwh} kWh.\nPiece: ${warning.room || 'Non precisee'}.`,
       });
-      setSignalMessage('Signalement envoye a l admin. Il pourra le valider et attribuer les points.');
+      setSignalMessage('Signalement envoyé à l’admin. Il pourra le valider et attribuer les points.');
     } catch (err) {
-      setSignalMessage(err.message || 'Impossible d envoyer le signalement.');
+      setSignalMessage(err.message || 'Impossible d’envoyer le signalement.');
     }
   };
 
@@ -190,10 +190,10 @@ function ConsumptionPanel({ consumption, budget, currentConsumption, progress, i
         <div>
           <h2 style={{ fontSize: '1.1rem', fontWeight: 800 }}>Suivi consommation mensuelle</h2>
           <p style={{ color: 'var(--color-text-muted)' }}>
-            {currentConsumption.toFixed(1)} kWh consommes {budget ? `sur ${budget.toFixed(1)} kWh` : ''}
+            {currentConsumption.toFixed(1)} kWh consommés {budget ? `sur ${budget.toFixed(1)} kWh` : ''}
           </p>
         </div>
-        {consumption.exceeded && <span className="badge badge-danger">Seuil depasse - maintenance activee</span>}
+        {consumption.exceeded && <span className="badge badge-danger">Seuil dépassé - maintenance activée</span>}
       </div>
       {budget > 0 && (
         <div className="level-progress" aria-label={`Consommation : ${progress.toFixed(0)}%`}>

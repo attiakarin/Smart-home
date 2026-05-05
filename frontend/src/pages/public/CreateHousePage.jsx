@@ -51,7 +51,7 @@ export default function CreateHousePage() {
     const { name, value } = event.target;
     if (name === 'nbPieces') {
       const count = Math.max(1, Number(value || 1));
-      setPieces(previous => Array.from({ length: count }, (_, index) => previous[index] || `Piece ${index + 1}`));
+      setPieces(previous => Array.from({ length: count }, (_, index) => previous[index] || `Pièce ${index + 1}`));
     }
     setForm(previous => ({ ...previous, [name]: value }));
   };
@@ -61,8 +61,8 @@ export default function CreateHousePage() {
       return 'Veuillez remplir les champs obligatoires.';
     }
     if (form.password !== form.confirmPassword) return 'Les mots de passe ne correspondent pas.';
-    if (form.password.length < 8) return 'Le mot de passe doit contenir au moins 8 caracteres.';
-    if (calculateAge(form.dateNaissance) < 18) return 'Vous devez avoir au moins 18 ans pour creer une maison.';
+    if (form.password.length < 8) return 'Le mot de passe doit contenir au moins 8 caractères.';
+    if (calculateAge(form.dateNaissance) < 18) return 'Vous devez avoir au moins 18 ans pour créer une maison.';
     return '';
   };
 
@@ -87,7 +87,7 @@ export default function CreateHousePage() {
       return;
     }
 
-    const genreMap = { Homme: 'H', Femme: 'F', 'Non-binaire': '-', 'Prefere ne pas preciser': '-' };
+    const genreMap = { Homme: 'H', Femme: 'F', 'Non-binaire': '-', 'Préfère ne pas préciser': '-' };
     const { confirmPassword, ...data } = form;
     const result = await createHouse({
       ...data,
@@ -111,9 +111,9 @@ export default function CreateHousePage() {
         <div className="auth-shell">
           <div className="card auth-card">
             <ShieldCheck size={40} color="var(--color-secondary)" aria-hidden="true" />
-            <h1>Maison creee</h1>
+            <h1>Maison créée</h1>
             <p className="auth-muted">Votre compte administrateur est actif. Partagez ce code avec les habitants que vous voulez inviter.</p>
-            <div className="access-code-box" aria-label="Code d'acces maison">
+            <div className="access-code-box" aria-label="Code d’accès maison">
               <KeyRound size={18} aria-hidden="true" />
               <strong>{created.code_acces}</strong>
             </div>
@@ -129,11 +129,11 @@ export default function CreateHousePage() {
       <div className="auth-shell">
         <div className="card auth-card">
           <Home size={38} color="var(--color-primary)" aria-hidden="true" />
-          <h1>Creer ma maison</h1>
+          <h1>Créer ma maison</h1>
           <p className="auth-muted">
             {step === 1
-              ? 'Creez votre compte administrateur.'
-              : 'Configurez votre logement, ses pieces et son seuil mensuel de consommation.'}
+              ? 'Créez votre compte administrateur.'
+              : 'Configurez votre logement, ses pièces et son seuil mensuel de consommation.'}
           </p>
 
           {error && <div className="alert alert-error mb-3" role="alert">{error}</div>}
@@ -150,7 +150,7 @@ export default function CreateHousePage() {
                   <input id="house-login" name="login" className="form-input" value={form.login} onChange={handleChange} required />
                 </div>
                 <div className="form-group">
-                  <label className="form-label" htmlFor="house-prenom">Prenom *</label>
+                  <label className="form-label" htmlFor="house-prenom">Prénom *</label>
                   <input id="house-prenom" name="prenom" className="form-input" value={form.prenom} onChange={handleChange} required />
                 </div>
                 <div className="form-group">
@@ -164,7 +164,7 @@ export default function CreateHousePage() {
                 <div className="form-group">
                   <label className="form-label" htmlFor="house-sexe">Sexe / Genre</label>
                   <select id="house-sexe" name="sexe" className="form-select" value={form.sexe} onChange={handleChange}>
-                    <option>Homme</option><option>Femme</option><option>Non-binaire</option><option>Prefere ne pas preciser</option>
+                    <option>Homme</option><option>Femme</option><option>Non-binaire</option><option>Préfère ne pas préciser</option>
                   </select>
                 </div>
                 <div className="form-group">
@@ -186,7 +186,7 @@ export default function CreateHousePage() {
             ) : (
               <>
                 <div className="alert alert-info mb-3" role="status">
-                  Si le seuil est depasse, le mode maintenance sera active automatiquement et l'admin sera prevenu.
+                  Si le seuil est dépassé, le mode maintenance sera activé automatiquement et l’admin sera prévenu.
                 </div>
                 <div className="grid grid-2 gap-2">
                   <div className="form-group">
@@ -197,18 +197,18 @@ export default function CreateHousePage() {
                     </select>
                   </div>
                   <div className="form-group">
-                    <label className="form-label" htmlFor="nb-pieces">Nombre de pieces</label>
+                    <label className="form-label" htmlFor="nb-pieces">Nombre de pièces</label>
                     <input id="nb-pieces" name="nbPieces" type="number" min="1" max="30" className="form-input" value={form.nbPieces} onChange={handleChange} />
                   </div>
                   <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                    <label className="form-label" htmlFor="budget-kwh">Consommation mensuelle a ne pas depasser (kWh)</label>
+                    <label className="form-label" htmlFor="budget-kwh">Consommation mensuelle à ne pas dépasser (kWh)</label>
                     <input id="budget-kwh" name="budgetKwh" type="number" min="0" step="0.1" className="form-input" value={form.budgetKwh} onChange={handleChange} />
                   </div>
                 </div>
                 <div className="grid grid-2 gap-2 mt-2">
                   {pieces.map((piece, index) => (
                     <div className="form-group" key={index}>
-                      <label className="form-label" htmlFor={`piece-${index}`}>Piece {index + 1}</label>
+                      <label className="form-label" htmlFor={`piece-${index}`}>Pièce {index + 1}</label>
                       <input
                         id={`piece-${index}`}
                         className="form-input"
@@ -224,7 +224,7 @@ export default function CreateHousePage() {
             <div className="flex gap-2 mt-3">
               {step === 2 && <button type="button" className="btn btn-ghost" onClick={() => setStep(1)}>Retour</button>}
               <button type="submit" className="btn btn-primary" style={{ flex: 1 }} disabled={loading}>
-                {step === 1 ? 'Continuer' : loading ? 'Creation en cours...' : 'Creer ma maison'}
+                {step === 1 ? 'Continuer' : loading ? 'Création en cours…' : 'Créer ma maison'}
               </button>
             </div>
           </form>
