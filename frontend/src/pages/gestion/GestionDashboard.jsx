@@ -32,7 +32,7 @@ export default function GestionDashboard() {
   const confirmDelete = useCallback(() => {
     if (deletePending) deleteDevice(deletePending.id);
     setDeletePending(null);
-  };
+  }, [deletePending, deleteDevice]);
 
   return (
     <div className="container section animate-fade">
