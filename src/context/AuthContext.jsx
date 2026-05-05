@@ -180,11 +180,14 @@ export function AuthProvider({ children }) {
   const canAccess = useCallback((module) => {
     if (!currentUser) return module === 'information';
     const nv = currentUser.niveau;
+    const isAdmin = currentUser.appRole === 'admin' && nv === 'Expert';
+    const isExpertResident = currentUser.appRole === 'habitant' && nv === 'Expert';
     switch (module) {
       case 'information':    return true;
       case 'visualisation':  return true;
       case 'gestion':        return nv === 'Avancé' || nv === 'Expert';
-      case 'administration': return nv === 'Expert' && currentUser.appRole === 'admin';
+      case 'device_delete':  return isAdmin || isExpertResident;
+      case 'administration': return isAdmin;
       default: return false;
     }
   }, [currentUser]);

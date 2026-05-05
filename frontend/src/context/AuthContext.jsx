@@ -382,6 +382,7 @@ export function AuthProvider({ children }) {
   const canAccess = useCallback((module) => {
     if (!currentUser) return module === 'information';
     const isAdmin = currentUser.appRole === 'admin' && normalizeLevelName(currentUser.niveau) === 'expert';
+    const isExpertResident = currentUser.appRole === 'habitant' && normalizeLevelName(currentUser.niveau) === 'expert';
     switch (module) {
       case 'information':    return true;
       case 'visualisation':  return true;
@@ -390,7 +391,7 @@ export function AuthProvider({ children }) {
       case 'device_create':  return hasMinLevel(currentUser, 'avance');
       case 'device_config':  return hasMinLevel(currentUser, 'avance');
       case 'reports':        return hasMinLevel(currentUser, 'avance');
-      case 'device_delete':  return isAdmin;
+      case 'device_delete':  return isAdmin || isExpertResident;
       case 'administration': return isAdmin;
       case 'users_manage':   return isAdmin;
       case 'settings_manage': return isAdmin;

@@ -57,6 +57,7 @@ export function requireModule(module) {
   return (req, res, next) => {
     const niveau = req.user?.niveau;
     const isAdmin = normalizeLevel(niveau) === 'expert' && req.user?.rolee === 'admin';
+    const isExpertResident = normalizeLevel(niveau) === 'expert' && req.user?.rolee === 'habitant';
     const allowed = {
       information: true,
       visualisation: true,
@@ -65,7 +66,7 @@ export function requireModule(module) {
       device_create: hasMinLevel(niveau, 'avance'),
       device_config: hasMinLevel(niveau, 'avance'),
       reports: hasMinLevel(niveau, 'avance'),
-      device_delete: isAdmin,
+      device_delete: isAdmin || isExpertResident,
       administration: isAdmin,
       users_manage: isAdmin,
       settings_manage: isAdmin,
