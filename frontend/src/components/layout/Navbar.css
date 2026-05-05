@@ -197,3 +197,8 @@
   .navbar-burger { display: block; }
   .navbar-inner { justify-content: space-between; }
 }
+@media (max-width: 480px) {
+  .navbar-logo span { font-size: .9rem; }
+  .navbar-inner { height: 56px; }
+  .user-dropdown { min-width: 180px; right: -.5rem; }
+}

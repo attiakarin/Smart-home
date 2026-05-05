@@ -601,7 +601,48 @@ input, select, textarea { font-family: inherit; }
   .container { padding-inline: 1rem; }
   .section { padding: 2.5rem 0; }
   .section-title { font-size: 1.4rem; }
+
+  /* Tables */
+  .table th, .table td { padding: .55rem .65rem; font-size: .82rem; }
+
+  /* Modal */
+  .modal-footer { flex-direction: column-reverse; gap: .5rem; }
+  .modal-footer .btn { width: 100%; justify-content: center; }
+
+  /* Auth forms */
+  .auth-shell { padding-inline: 0; }
+  .auth-card h1 { font-size: 1.35rem; }
+
+  /* Access code full-width */
+  .access-code-box { width: 100%; justify-content: center; }
+
+  /* Maintenance banner — stack on mobile */
+  .maintenance-banner__inner { flex-direction: column; align-items: flex-start; gap: .75rem; }
+  .maintenance-banner__actions { justify-content: flex-start; width: 100%; }
+
+  /* Admin header */
+  .admin-devices-header { flex-direction: column; }
+
+  /* Device photo editor */
+  .device-photo-editor { flex-direction: column; align-items: flex-start; }
 }
 @media (max-width: 480px) {
   .btn { padding: .55rem 1.1rem; font-size: .88rem; }
+
+  /* Cards */
+  .card { padding: 1rem; }
+
+  /* Section */
+  .section { padding: 1.5rem 0; }
+
+  /* Tables */
+  .table th, .table td { padding: .4rem .5rem; font-size: .75rem; }
+
+  /* Modal padding */
+  .modal-header { padding: 1rem 1rem .75rem; }
+  .modal-body   { padding: 1rem; }
+  .modal-footer { padding: .75rem 1rem 1rem; }
+
+  /* Auth */
+  .auth-card h1 { font-size: 1.2rem; }
 }

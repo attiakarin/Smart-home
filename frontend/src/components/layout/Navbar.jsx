@@ -47,7 +47,7 @@ export default function Navbar() {
             <>
               <li><NavLink to="/catalogue-maison" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>Catalogue</NavLink></li>
               <li><NavLink to="/energie" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>Energie</NavLink></li>
-              <li><NavLink to="/securite" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>Securite</NavLink></li>
+              <li><NavLink to="/securite" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>Sécurité</NavLink></li>
               <li><NavLink to="/login" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>Connexion</NavLink></li>
               <li><NavLink to="/creer-maison" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>Créer ma maison</NavLink></li>
               <li><NavLink to="/inscription" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>Inscription</NavLink></li>
@@ -180,7 +180,7 @@ export default function Navbar() {
             <>
               <NavLink to="/catalogue-maison" onClick={() => setMenuOpen(false)} className="mob-link">Catalogue maison</NavLink>
               <NavLink to="/energie"          onClick={() => setMenuOpen(false)} className="mob-link">Energie</NavLink>
-              <NavLink to="/securite"         onClick={() => setMenuOpen(false)} className="mob-link">Securite</NavLink>
+              <NavLink to="/securite"         onClick={() => setMenuOpen(false)} className="mob-link">Sécurité</NavLink>
               <NavLink to="/login"       onClick={() => setMenuOpen(false)} className="mob-link">Connexion</NavLink>
               <NavLink to="/creer-maison" onClick={() => setMenuOpen(false)} className="mob-link">Créer ma maison</NavLink>
               <NavLink to="/inscription" onClick={() => setMenuOpen(false)} className="mob-link">Inscription</NavLink>
