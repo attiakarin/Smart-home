@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useDevices } from '../../context/DevicesContext';
 import { useAuth } from '../../context/AuthContext';
@@ -16,16 +16,20 @@ export default function GestionDashboard() {
   const canSeeReports = canAccess('reports');
   const canDelete = canAccess('device_delete');
 
-  const active   = devices.filter(d => d.status === 'active').length;
-  const totalE   = devices.filter(d => d.status === 'active').reduce((s, d) => s + (d.energyConsumption > 0 ? d.energyConsumption : 0), 0).toFixed(1);
-  const lowBatt  = devices.filter(d => d.battery !== null && d.battery !== undefined && d.battery < 25).length;
-  const byRoom   = devices.reduce((acc, d) => { acc[d.room] = (acc[d.room] || 0) + 1; return acc; }, {});
+  const { active, totalE, lowBatt, byRoom } = useMemo(() => ({
+    active:  devices.filter(d => d.status === 'active').length,
+    totalE:  devices.filter(d => d.status === 'active')
+               .reduce((s, d) => s + (d.energyConsumption > 0 ? d.energyConsumption : 0), 0)
+               .toFixed(1),
+    lowBatt: devices.filter(d => d.battery !== null && d.battery !== undefined && d.battery < 25).length,
+    byRoom:  devices.reduce((acc, d) => { acc[d.room] = (acc[d.room] || 0) + 1; return acc; }, {}),
+  }), [devices]);
 
-  const handleDeleteRequest = (device) => {
+  const handleDeleteRequest = useCallback((device) => {
     setDeletePending(device);
-  };
+  }, []);
 
-  const confirmDelete = () => {
+  const confirmDelete = useCallback(() => {
     if (deletePending) deleteDevice(deletePending.id);
     setDeletePending(null);
   };

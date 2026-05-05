@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useDevices } from '../../context/DevicesContext';
 import { Link } from 'react-router-dom';
@@ -27,11 +27,19 @@ export default function DashboardPage() {
   const canCreateDevices = canAccess('device_create');
   const canSeeReports = canAccess('reports');
   const levelKey = currentUser.niveau?.toLowerCase();
-  const pendingUsers = users.filter(user => user.status === 'pending');
-  const active = devices.filter(device => device.status === 'active').length;
-  const inactive = devices.filter(device => device.status === 'inactive').length;
-  const lowBattery = devices.filter(device => device.battery !== null && device.battery !== undefined && device.battery < 25).length;
-  const totalEnergy = devices.filter(device => device.status === 'active').reduce((sum, device) => sum + (device.energyConsumption > 0 ? device.energyConsumption : 0), 0).toFixed(1);
+  const pendingUsers = useMemo(() => users.filter(user => user.status === 'pending'), [users]);
+
+  const deviceStats = useMemo(() => {
+    const active     = devices.filter(d => d.status === 'active').length;
+    const inactive   = devices.filter(d => d.status === 'inactive').length;
+    const lowBattery = devices.filter(d => d.battery !== null && d.battery !== undefined && d.battery < 25).length;
+    const totalEnergy = devices
+      .filter(d => d.status === 'active')
+      .reduce((sum, d) => sum + (d.energyConsumption > 0 ? d.energyConsumption : 0), 0)
+      .toFixed(1);
+    return { active, inactive, lowBattery, totalEnergy };
+  }, [devices]);
+  const { active, inactive, lowBattery, totalEnergy } = deviceStats;
 
   const next = NEXT_LEVEL[levelKey];
   const nextPts = next ? LEVELS[next].points : null;
@@ -40,7 +48,7 @@ export default function DashboardPage() {
   const consumption = Number(houseConsumption?.consumptionKwh || 0);
   const consumptionProgress = budget ? Math.min(100, (consumption / budget) * 100) : 0;
 
-  const signalDevice = async (warning) => {
+  const signalDevice = useCallback(async (warning) => {
     setSignalMessage('');
     try {
       await requestsAPI.create({
@@ -49,11 +57,11 @@ export default function DashboardPage() {
         title: `Prevention consommation - ${warning.deviceName}`,
         message: `${warning.message}\nConsommation estimee: ${warning.consumptionKwh} kWh.\nPiece: ${warning.room || 'Non precisee'}.`,
       });
-      setSignalMessage('Signalement envoyé à l’admin. Il pourra le valider et attribuer les points.');
+      setSignalMessage("Signalement envoyé à l'admin. Il pourra le valider et attribuer les points.");
     } catch (err) {
-      setSignalMessage(err.message || 'Impossible d’envoyer le signalement.');
+      setSignalMessage(err.message || "Impossible d'envoyer le signalement.");
     }
-  };
+  }, []);
 
   return (
     <div className="container section animate-fade">

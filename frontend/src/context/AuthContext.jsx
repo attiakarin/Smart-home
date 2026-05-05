@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { authAPI, devicesAPI, houseAPI, requestsAPI, settingsAPI, usersAPI } from '../services/api';
 
 const AuthContext = createContext(null);
@@ -399,27 +399,36 @@ export function AuthProvider({ children }) {
     }
   }, [currentUser]);
 
+  const contextValue = useMemo(() => ({
+    users, setUsers,
+    currentUser, setCurrentUser,
+    devices, setDevices,
+    adminRequests, setAdminRequests,
+    pendingAdminRequests, refreshAdminRequests,
+    residentRequests, setResidentRequests,
+    unreadResidentReplies, refreshResidentRequests, markResidentRepliesRead,
+    login, logout, register,
+    createHouse,
+    updateUser, deleteUser, createUser,
+    settings, updateSettings,
+    houseConfig, setHouseConfig,
+    houseConsumption, setHouseConsumption,
+    updateHouseConfig, refreshHouseConsumption,
+    deleteCurrentAccount,
+    logAction,
+    canAccess, computeLevel,
+    loading,
+  }), [
+    users, currentUser, devices, adminRequests, pendingAdminRequests,
+    residentRequests, unreadResidentReplies, settings, houseConfig, houseConsumption, loading,
+    refreshAdminRequests, refreshResidentRequests, markResidentRepliesRead,
+    login, logout, register, createHouse,
+    updateUser, deleteUser, createUser, updateSettings,
+    updateHouseConfig, refreshHouseConsumption, deleteCurrentAccount, logAction, canAccess, computeLevel,
+  ]);
+
   return (
-    <AuthContext.Provider value={{
-      users, setUsers,
-      currentUser, setCurrentUser,
-      devices, setDevices,
-      adminRequests, setAdminRequests,
-      pendingAdminRequests, refreshAdminRequests,
-      residentRequests, setResidentRequests,
-      unreadResidentReplies, refreshResidentRequests, markResidentRepliesRead,
-      login, logout, register,
-      createHouse,
-      updateUser, deleteUser, createUser,
-      settings, updateSettings,
-      houseConfig, setHouseConfig,
-      houseConsumption, setHouseConsumption,
-      updateHouseConfig, refreshHouseConsumption,
-      deleteCurrentAccount,
-      logAction,
-      canAccess, computeLevel,
-      loading,
-    }}>
+    <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   );

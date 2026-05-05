@@ -26,9 +26,11 @@ export default function Navbar() {
   const pendingRequests = canAccess('administration')
     ? users.filter(user => user.status === 'pending').length
     : 0;
-  const totalAdminNotifications = pendingRequests + pendingAdminRequests;
+  // "Admin" badge = uniquement les demandes d'accès (les messages sont déjà sur "Demandes")
+  const totalAdminNotifications = pendingRequests;
   const messageNotifications = canAccess('administration') ? pendingAdminRequests : unreadResidentReplies;
-  const totalNotifications = totalAdminNotifications + (!canAccess('administration') ? unreadResidentReplies : 0);
+  // Avatar = vrai total sans double comptage (pendingRequests + messages)
+  const totalNotifications = pendingRequests + pendingAdminRequests + (!canAccess('administration') ? unreadResidentReplies : 0);
 
   return (
     <header className="navbar" role="banner">
