@@ -144,7 +144,7 @@ export default function CreateHousePage() {
             </div>
 
             <button type="submit" className="btn btn-primary mt-3" style={{ width: '100%' }} disabled={loading}>
-              {loading ? 'Création en cours...' : 'Créer ma maison'}
+              {loading ? 'Création en cours…' : 'Créer ma maison'}
             </button>
           </form>
         </div>

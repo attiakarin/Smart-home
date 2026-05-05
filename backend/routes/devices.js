@@ -224,6 +224,112 @@ router.put('/:id', authenticate, requireModule('device_config'), async (req, res
   }
 });
 
+// ── Règles d'automatisation ────────────────────────────────────────────────
+
+/**
+ * POST /api/devices/:id/automation-rules
+ * Crée une règle d'automatisation pour un objet connecté.
+ * Body : { heure: "HH:MM", action_auto: "activer"|"desactiver", jours: ["lun","mar",...] }
+ *
+ * Requête PostgreSQL (Supabase) :
+ *   INSERT INTO automatisation_regles (objet_id, maison_id, heure_declenchement, action, jours_actifs)
+ *   VALUES ($1, $2, $3::time, $4, $5) RETURNING *
+ *
+ *   + upsert dans config_objet pour accès en temps réel par l'objet
+ */
+router.post('/:id/automation-rules', authenticate, requireModule('device_config'), async (req, res) => {
+  const { heure, action_auto, jours } = req.body;
+
+  if (!heure || !action_auto) {
+    return res.status(400).json({ error: 'Champs requis : heure, action_auto.' });
+  }
+  if (!['activer', 'desactiver'].includes(action_auto)) {
+    return res.status(400).json({ error: 'action_auto doit être "activer" ou "desactiver".' });
+  }
+
+  const joursStr = Array.isArray(jours) && jours.length > 0
+    ? jours.join(',')
+    : 'lun,mar,mer,jeu,ven';
+
+  try {
+    // Vérifie que l'objet appartient bien à la maison de l'utilisateur
+    const { rows: objs } = await pool.query(
+      'SELECT id FROM objets WHERE id = $1 AND (maison_id = $2 OR $2 IS NULL)',
+      [req.params.id, req.user.maisonId || null]
+    );
+    if (objs.length === 0) return res.status(404).json({ error: 'Objet introuvable.' });
+
+    // Crée la règle dans la table dédiée
+    const { rows } = await pool.query(
+      `INSERT INTO automatisation_regles
+         (objet_id, maison_id, heure_declenchement, action, jours_actifs)
+       VALUES ($1, $2, $3::time, $4, $5)
+       RETURNING id, objet_id, heure_declenchement, action, jours_actifs, active, cree_le`,
+      [req.params.id, req.user.maisonId || null, heure, action_auto, joursStr]
+    );
+
+    // Reflète aussi dans config_objet pour que le frontend puisse lire l'état
+    await saveDeviceSettings(req.params.id, {
+      automatisation:      'active',
+      alerte_push:         'active',
+      heure_declenchement: heure,
+      action_auto,
+      jours_actifs:        joursStr,
+    });
+
+    res.status(201).json(rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erreur serveur.' });
+  }
+});
+
+/**
+ * GET /api/devices/:id/automation-rules
+ * Retourne les règles d'automatisation actives d'un objet.
+ *
+ * Requête PostgreSQL :
+ *   SELECT * FROM automatisation_regles
+ *   WHERE objet_id = $1 AND (maison_id = $2 OR $2 IS NULL) AND active = true
+ *   ORDER BY cree_le DESC
+ */
+router.get('/:id/automation-rules', authenticate, async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT id, objet_id, heure_declenchement, action, jours_actifs, active, cree_le
+       FROM automatisation_regles
+       WHERE objet_id = $1 AND (maison_id = $2 OR $2 IS NULL) AND active = true
+       ORDER BY cree_le DESC`,
+      [req.params.id, req.user.maisonId || null]
+    );
+    res.json(rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erreur serveur.' });
+  }
+});
+
+/**
+ * DELETE /api/devices/:id/automation-rules/:ruleId
+ * Désactive (soft delete) une règle d'automatisation.
+ */
+router.delete('/:id/automation-rules/:ruleId', authenticate, requireModule('device_config'), async (req, res) => {
+  try {
+    const { rowCount } = await pool.query(
+      `UPDATE automatisation_regles SET active = false
+       WHERE id = $1 AND objet_id = $2 AND (maison_id = $3 OR $3 IS NULL)`,
+      [req.params.ruleId, req.params.id, req.user.maisonId || null]
+    );
+    if (rowCount === 0) return res.status(404).json({ error: 'Règle introuvable.' });
+    res.json({ message: 'Règle désactivée.' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Erreur serveur.' });
+  }
+});
+
+// ── Toggle statut ─────────────────────────────────────────────────────────
+
 router.patch('/:id/toggle', authenticate, requireModule('device_toggle'), async (req, res) => {
   try {
     await pool.query(

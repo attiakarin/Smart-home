@@ -18,7 +18,7 @@ export default function AdminConsumption() {
         const data = await houseAPI.getConsumptionHistory();
         if (active) setHistory(data);
       } catch (err) {
-        if (active) setError(err.message || 'Impossible de charger les depassements.');
+        if (active) setError(err.message || 'Impossible de charger les dépassements.');
       } finally {
         if (active) setLoading(false);
       }
@@ -41,9 +41,9 @@ export default function AdminConsumption() {
 
       <div className="dashboard-welcome">
         <div>
-          <h1>Depassements de consommation</h1>
+          <h1>Dépassements de consommation</h1>
           <p style={{ color: 'var(--color-text-muted)' }}>
-            Historique des alertes mensuelles, dates de declenchement, resolution et objets les plus consommateurs.
+            Historique des alertes mensuelles, dates de déclenchement, résolution et objets les plus consommateurs.
           </p>
         </div>
         <span className={`badge ${activeAlerts.length ? 'badge-danger' : 'badge-success'}`}>
@@ -55,8 +55,8 @@ export default function AdminConsumption() {
       {currentAlert && (
         <div className="alert alert-warning mb-3" role="alert">
           <AlertTriangle size={18} aria-hidden="true" />
-          Depassement en cours : {Number(currentAlert.consumptionKwh || 0).toFixed(1)} kWh pour un seuil de {Number(currentAlert.budgetKwh || 0).toFixed(1)} kWh.
-          {currentAlert.topDevice?.name && <> Objet a verifier : <strong>{currentAlert.topDevice.name}</strong>.</>}
+          Dépassement en cours : {Number(currentAlert.consumptionKwh || 0).toFixed(1)} kWh pour un seuil de {Number(currentAlert.budgetKwh || 0).toFixed(1)} kWh.
+          {currentAlert.topDevice?.name && <> Objet à vérifier : <strong>{currentAlert.topDevice.name}</strong>.</>}
         </div>
       )}
 
@@ -81,7 +81,7 @@ export default function AdminConsumption() {
       </div>
 
       <div className="table-wrapper card" style={{ padding: 0 }}>
-        <table className="table" aria-label="Historique des depassements de consommation">
+        <table className="table" aria-label="Historique des dépassements de consommation">
           <thead>
             <tr>
               <th>Mois</th>
@@ -89,13 +89,13 @@ export default function AdminConsumption() {
               <th>Seuil</th>
               <th>Statut</th>
               <th>Date alerte</th>
-              <th>Resolution</th>
+              <th>Résolution</th>
               <th>Objet le plus consommateur</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={7}>Chargement...</td></tr>
+              <tr><td colSpan={7}>Chargement…</td></tr>
             ) : history.length === 0 ? (
               <tr><td colSpan={7}>Aucun historique pour le moment.</td></tr>
             ) : history.map(row => (
@@ -105,7 +105,7 @@ export default function AdminConsumption() {
                 <td>{Number(row.budgetKwh || 0).toFixed(1)} kWh</td>
                 <td>
                   <span className={`badge ${row.exceeded ? 'badge-danger' : 'badge-success'}`}>
-                    {row.exceeded ? 'Depasse' : row.maintenanceTriggered ? 'Resolu' : 'OK'}
+                    {row.exceeded ? 'Dépassé' : row.maintenanceTriggered ? 'Résolu' : 'OK'}
                   </span>
                 </td>
                 <td>{row.alertAt ? formatDateTime(row.alertAt) : '-'}</td>
@@ -129,7 +129,7 @@ export default function AdminConsumption() {
 
       {exceededRows.length > 0 && (
         <p className="text-sm mt-3" style={{ color: 'var(--color-text-muted)' }}>
-          Les alertes passent en statut resolu automatiquement quand la consommation active repasse sous le seuil.
+          Les alertes passent en statut résolu automatiquement quand la consommation active repasse sous le seuil.
         </p>
       )}
     </div>

@@ -23,3 +23,13 @@
   border-radius: 999px;
   transition: width .6s ease;
 }
+
+/* ── RESPONSIVE ─────────────────────────────────────── */
+@media (max-width: 768px) {
+  .dashboard-welcome { flex-direction: column; align-items: flex-start; }
+  .dashboard-welcome .btn { align-self: flex-start; }
+  .dashboard-welcome h1 { font-size: 1.35rem; }
+}
+@media (max-width: 480px) {
+  .dashboard-welcome h1 { font-size: 1.2rem; }
+}

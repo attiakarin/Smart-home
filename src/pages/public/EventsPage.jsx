@@ -47,7 +47,7 @@ export default function EventsPage() {
           </article>
         ))}
         {filtered.length === 0 && (
-          <p className="text-center mt-4" style={{ color: 'var(--color-text-muted)', gridColumn: '1/-1' }}>Aucun événement correspond à vos filtres.</p>
+          <p className="text-center mt-4" style={{ color: 'var(--color-text-muted)', gridColumn: '1/-1' }}>Aucun événement ne correspond à vos filtres.</p>
         )}
       </div>
     </div>

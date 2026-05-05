@@ -55,7 +55,7 @@ export default function ServicesPage() {
           placeholder="Nom, description, type..."
           value={keyword}
           onChange={e => setKeyword(e.target.value)}
-          aria-label="Mot cle"
+          aria-label="Mot-clé"
           style={{ flex: 1, minWidth: 220 }}
         />
         <select className="form-select" value={type} onChange={e => setType(e.target.value)} aria-label="Type de service" style={{ minWidth: 170 }}>
@@ -90,7 +90,7 @@ export default function ServicesPage() {
 
         {loading && (
           <p style={{ color: 'var(--color-text-muted)', gridColumn: '1/-1', textAlign: 'center', padding: '2rem 0' }}>
-            Chargement des services...
+            Chargement des services…
           </p>
         )}
       </div>
