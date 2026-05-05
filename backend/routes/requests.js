@@ -70,6 +70,17 @@ function bonusForLevel(level) {
   return LEVEL_POINTS[normalized] || 0;
 }
 
+function isExpert(user) {
+  return user && normalizeLevel(user.niveau) === 'expert';
+}
+
+function requireExpertAccess(req, res, next) {
+  if (!isExpert(req.user)) {
+    return res.status(403).json({ error: 'Accès refusé. Seuls les experts peuvent traiter les demandes.' });
+  }
+  next();
+}
+
 function mapRequest(row) {
   return {
     id: row.id,
@@ -248,7 +259,7 @@ router.post('/', async (req, res) => {
   }
 });
 
-router.get('/', requireModule('administration'), async (req, res) => {
+router.get('/', requireExpertAccess, async (req, res) => {
   try {
     const requests = await fetchRequests(
       'WHERE demandes_admin.maison_id = $1 OR $1 IS NULL',
@@ -261,7 +272,7 @@ router.get('/', requireModule('administration'), async (req, res) => {
   }
 });
 
-router.patch('/:id', requireModule('administration'), async (req, res) => {
+router.patch('/:id', requireExpertAccess, async (req, res) => {
   try {
     await ensureRequestsTable();
     const status = VALID_STATUSES.has(req.body.status) ? req.body.status : undefined;
@@ -348,7 +359,7 @@ router.post('/:id/messages', async (req, res) => {
        WHERE id = $1
          AND maison_id = $2
          AND ($3 = TRUE OR user_id = $4)`,
-      [req.params.id, req.user.maisonId, req.user.rolee === 'admin', req.user.id]
+      [req.params.id, req.user.maisonId, isExpert(req.user), req.user.id]
     );
     const request = rows[0];
     if (!request) return res.status(404).json({ error: 'Demande introuvable.' });
@@ -356,20 +367,20 @@ router.post('/:id/messages', async (req, res) => {
       return res.status(400).json({ error: 'Cette conversation est fermee.' });
     }
 
-    const isAdmin = req.user.rolee === 'admin';
+    const isExpertUser = isExpert(req.user);
     await pool.query(
       `INSERT INTO demande_messages (demande_id, auteur_id, auteur_role, message)
        VALUES ($1, $2, $3, $4)`,
-      [request.id, req.user.id, isAdmin ? 'admin' : 'habitant', message]
+      [request.id, req.user.id, isExpertUser ? 'admin' : 'habitant', message]
     );
 
     const fields = ['date_maj = NOW()'];
-    if (isAdmin) fields.push('reponse_lue = FALSE', 'traite_par = $2', 'reponse_admin = $3');
+    if (isExpertUser) fields.push('reponse_lue = FALSE', 'traite_par = $2', 'reponse_admin = $3');
     await pool.query(
       `UPDATE demandes_admin
        SET ${fields.join(', ')}
        WHERE id = $1`,
-      isAdmin ? [request.id, req.user.id, message] : [request.id]
+      isExpertUser ? [request.id, req.user.id, message] : [request.id]
     );
 
     const updated = await fetchRequests('WHERE demandes_admin.id = $1', [request.id]);
