@@ -1,8 +1,8 @@
 export const LEVELS = {
   'Débutant': { points: 0, label: 'Débutant', color: '#6b7280' },
-  'Intermédiaire': { points: 5, label: 'Intermédiaire', color: '#3b82f6' },
-  'Avancé': { points: 15, label: 'Avancé', color: '#8b5cf6' },
-  Expert: { points: 30, label: 'Expert', color: '#f59e0b' },
+  'Intermédiaire': { points: 25, label: 'Intermédiaire', color: '#3b82f6' },
+  'Avancé': { points: 50, label: 'Avancé', color: '#8b5cf6' },
+  Expert: { points: 75, label: 'Expert', color: '#f59e0b' },
 };
 
 export const LEVEL_OPTIONS = Object.keys(LEVELS);

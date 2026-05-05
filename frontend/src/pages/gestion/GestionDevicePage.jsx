@@ -54,12 +54,14 @@ function normalizeType(type = '') {
 export default function GestionDevicePage() {
   const { id } = useParams();
   const { getDevice, updateDevice, toggleDevice, rooms, deviceTypes } = useDevices();
-  const { canAccess } = useAuth();
+  const { canAccess, currentUser } = useAuth();
   const device = getDevice(id);
   const [form, setForm] = useState(device ? { ...device, settings: device.settings || {} } : {});
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState('');
   const canToggle = canAccess('device_toggle');
+  const canConfig = canAccess('device_config');
+  const isIntermediate = currentUser?.niveau && currentUser.niveau.toLowerCase().includes('intermédiaire');
 
   useEffect(() => {
     if (device) setForm({ ...device, settings: device.settings || {} });
@@ -168,7 +170,28 @@ export default function GestionDevicePage() {
         {saved && <div className="alert alert-success mb-3" role="status">Configuration enregistrée.</div>}
         {error && <div className="alert alert-error mb-3" role="alert">{error}</div>}
 
-        <form onSubmit={handleSave} className="grid grid-2" noValidate>
+        {isIntermediate && (
+          <div className="alert alert-warning mb-3" role="alert">
+            ⚠️ En tant qu'intermédiaire, vous pouvez uniquement activer ou désactiver les objets. La configuration complète est réservée aux utilisateurs de niveau Avancé ou Expert.
+          </div>
+        )}
+
+        {!canConfig ? (
+          <div className="card" style={{ padding: '2rem', textAlign: 'center' }}>
+            <p style={{ marginBottom: '1.5rem', color: 'var(--color-text-muted)' }}>
+              Vous ne pouvez effectuer que des actions basiques sur cet objet.
+            </p>
+            <div className="flex gap-2" style={{ justifyContent: 'center', flexWrap: 'wrap' }}>
+              {canToggle && (
+                <button type="button" className="btn btn-primary" onClick={() => toggleDevice(id)}>
+                  {device.status === 'active' ? 'Désactiver' : 'Activer'}
+                </button>
+              )}
+              <Link to={`/objets/${id}`} className="btn btn-outline">Voir détail</Link>
+            </div>
+          </div>
+        ) : (
+          <form onSubmit={handleSave} className="grid grid-2" noValidate>
           <div className="card">
             <h2 style={{ fontSize: '1rem', fontWeight: 800, marginBottom: '1rem' }}>Informations générales</h2>
             <div className="grid grid-2 gap-2">
@@ -280,6 +303,7 @@ export default function GestionDevicePage() {
             </div>
           </div>
         </form>
+        )}
       </div>
     </div>
   );

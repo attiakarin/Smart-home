@@ -58,9 +58,9 @@ function toDbLevel(value = 'Débutant') {
 
 const LEVEL_MIN_POINTS = {
   'D\u00e9butant': 0,
-  'Interm\u00e9diaire': 5,
-  'Avanc\u00e9': 15,
-  Expert: 30,
+  'Interm\u00e9diaire': 25,
+  'Avanc\u00e9': 50,
+  Expert: 75,
 };
 
 function toDbStatus(value = 'approved') {
@@ -235,7 +235,7 @@ router.post('/', async (req, res) => {
 
   const finalRolee = rolee === 'admin' ? 'admin' : 'habitant';
   const finalNiveau = finalRolee === 'admin' ? 'Expert' : niveau;
-  const finalPoints = finalRolee === 'admin' ? Math.max(Number(points || 0), 30) : Number(points || 0);
+  const finalPoints = finalRolee === 'admin' ? Math.max(Number(points || 0), LEVEL_MIN_POINTS.Expert) : Number(points || 0);
   const nextStatut = toDbStatus(statut ?? status);
   const age = calculateAge(dateNaissance);
 

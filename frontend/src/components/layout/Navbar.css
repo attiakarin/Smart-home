@@ -35,6 +35,14 @@
   flex: 1;
 }
 
+.navbar-links-right {
+  display: flex;
+  align-items: center;
+  gap: .25rem;
+  list-style: none;
+  flex-shrink: 0;
+}
+
 .nav-link {
   display: inline-flex;
   align-items: center;

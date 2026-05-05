@@ -38,7 +38,7 @@ export default function AdminRequestsPage() {
     refreshAdminRequests,
     markResidentRepliesRead,
   } = useAuth();
-  const isAdmin = currentUser.appRole === 'admin';
+  const isExpert = currentUser?.niveau === 'Expert';
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -70,10 +70,10 @@ export default function AdminRequestsPage() {
     setLoading(true);
     setError('');
     try {
-      const data = isAdmin ? await requestsAPI.getAll() : await requestsAPI.getMine();
+      const data = isExpert ? await requestsAPI.getAll() : await requestsAPI.getMine();
       setRequests(data);
-      if (isAdmin) setAdminRequests(data);
-      if (!isAdmin) {
+      if (isExpert) setAdminRequests(data);
+      if (!isExpert) {
         setResidentRequests(data);
         if (data.some(request => request.adminReply && !request.replyRead)) {
           await markResidentRepliesRead();
@@ -91,7 +91,7 @@ export default function AdminRequestsPage() {
 
   useEffect(() => {
     loadRequests();
-  }, [isAdmin]);
+  }, [isExpert]);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -117,7 +117,7 @@ export default function AdminRequestsPage() {
         awardUseful: Boolean(options.awardUseful),
       });
       setRequests(previous => previous.map(item => item.id === request.id ? updated : item));
-      if (isAdmin) await refreshAdminRequests();
+      if (isExpert) await refreshAdminRequests();
       setSuccess(updated.awardedPoints ? `Demande traitée. ${updated.awardedPoints} point(s) attribué(s) à l’habitant.` : 'Demande mise à jour.');
     } catch (err) {
       setError(err.message || 'Impossible de mettre à jour la demande.');
@@ -134,7 +134,7 @@ export default function AdminRequestsPage() {
       setRequests(previous => previous.map(item => item.id === request.id ? updated : item));
       setMessageById(previous => ({ ...previous, [request.id]: '' }));
       setReplyById(previous => ({ ...previous, [request.id]: '' }));
-      if (isAdmin) await refreshAdminRequests();
+      if (isExpert) await refreshAdminRequests();
     } catch (err) {
       setError(err.message || 'Impossible d’envoyer le message.');
     }
@@ -156,9 +156,9 @@ export default function AdminRequestsPage() {
 
       <div className="dashboard-welcome">
         <div>
-          <h1>Demandes à l’admin</h1>
+          <h1>Demandes à un expert</h1>
           <p style={{ color: 'var(--color-text-muted)' }}>
-            {isAdmin
+            {isExpert
               ? 'Suivez les demandes des habitants et répondez depuis un seul endroit.'
               : 'Expliquez ce dont vous avez besoin: nouvel objet, configuration, aide ou accès.'}
           </p>
@@ -177,7 +177,7 @@ export default function AdminRequestsPage() {
       {success && <div className="alert alert-success mb-3" role="status">{success}</div>}
       {error && <div className="alert alert-error mb-3" role="alert">{error}</div>}
 
-      {!isAdmin && (
+      {!isExpert && (
         <div className="card mb-4">
           <div style={{ display: 'flex', alignItems: 'center', gap: '.6rem', marginBottom: '1rem' }}>
             <MessageSquarePlus size={20} color="var(--color-primary)" />
@@ -234,7 +234,7 @@ export default function AdminRequestsPage() {
               <div className="flex gap-1 mt-2" style={{ flexWrap: 'wrap' }}>
                 <span className="badge badge-gray">Priorité: {request.priority}</span>
                 <span className="badge badge-gray">{formatDateTime(request.createdAt)}</span>
-                {isAdmin && request.requester?.login && (
+                {isExpert && request.requester?.login && (
                   <span className="badge badge-primary">@{request.requester.login} - {request.requester.niveau}</span>
                 )}
                 {request.awardedPoints > 0 && (
@@ -276,7 +276,7 @@ export default function AdminRequestsPage() {
                 </div>
               </div>
 
-              {!isAdmin && !request.closed && (
+              {!isExpert && !request.closed && (
                 <div className="mt-3">
                   <label className="form-label" htmlFor={`message-${request.id}`}>Ajouter un message</label>
                   <textarea
@@ -299,7 +299,7 @@ export default function AdminRequestsPage() {
                 </div>
               )}
 
-              {isAdmin && (
+              {isExpert && (
                 <div className="mt-3">
                   <label className="form-label" htmlFor={`reply-${request.id}`}>Message admin</label>
                   <textarea
