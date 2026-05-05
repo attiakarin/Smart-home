@@ -5,7 +5,7 @@ import { useDevices } from '../../context/DevicesContext';
 import { Users, Cpu, Settings, BarChart2, Shield, AlertTriangle, Check, X, KeyRound } from 'lucide-react';
 
 const LEVELS = ['Débutant', 'Intermédiaire', 'Avancé', 'Expert'];
-const LEVEL_POINTS = { Débutant: 0, Intermédiaire: 5, Avancé: 15, Expert: 30 };
+const LEVEL_POINTS = { Débutant: 0, Intermédiaire: 25, Avancé: 50, Expert: 75 };
 const APP_ROLES = [
   { value: 'habitant', label: 'Habitant' },
   { value: 'admin', label: 'Administrateur' },
