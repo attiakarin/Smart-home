@@ -38,6 +38,14 @@ app.get('/api/health', (_req, res) => res.json({ status: 'ok', time: new Date() 
 // ─── 404 handler ──────────────────────────────────────────────────────────
 app.use((_req, res) => res.status(404).json({ error: 'Route introuvable.' }));
 
+// ─── Global error handler ─────────────────────────────────────────────────
+// eslint-disable-next-line no-unused-vars
+app.use((err, _req, res, _next) => {
+  console.error('Erreur non gérée:', err);
+  const status = err.status || err.statusCode || 500;
+  res.status(status).json({ error: err.message || 'Erreur serveur.' });
+});
+
 // ─── Démarrage ────────────────────────────────────────────────────────────
 await testConnection();
 

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, UserPlus, Trash2, Edit3, Check, X } from 'lucide-react';
@@ -35,9 +35,9 @@ export default function AdminUsers() {
   const [addError, setAddError] = useState('');
   const [saved, setSaved]       = useState('');
 
-  const filtered = users.filter(u =>
+  const filtered = useMemo(() => users.filter(u =>
     filter === 'all' ? true : filter === 'pending' ? u.status === 'pending' : u.status === 'approved'
-  );
+  ), [users, filter]);
 
   const startEdit = (u) => {
     setEditId(u.id);

@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react';
 import { devicesAPI } from '../services/api';
 import { ROOMS, DEVICE_TYPES } from '../constants/smartHome';
 import { useAuth } from './AuthContext';
@@ -91,14 +91,21 @@ export function DevicesProvider({ children }) {
 
   const getDevice = useCallback((id) => devices.find(d => String(d.id) === String(id)), [devices]);
 
+  const rooms = useMemo(
+    () => (houseConfig?.pieces?.length ? houseConfig.pieces : ROOMS),
+    [houseConfig]
+  );
+
+  const contextValue = useMemo(() => ({
+    devices, setDevices,
+    addDevice, updateDevice, deleteDevice, toggleDevice, getDevice,
+    rooms,
+    deviceTypes: DEVICE_TYPES,
+    loading,
+  }), [devices, loading, rooms, addDevice, updateDevice, deleteDevice, toggleDevice, getDevice]);
+
   return (
-    <DevicesContext.Provider value={{
-      devices, setDevices,
-      addDevice, updateDevice, deleteDevice, toggleDevice, getDevice,
-      rooms: houseConfig?.pieces?.length ? houseConfig.pieces : ROOMS,
-      deviceTypes: DEVICE_TYPES,
-      loading,
-    }}>
+    <DevicesContext.Provider value={contextValue}>
       {children}
     </DevicesContext.Provider>
   );

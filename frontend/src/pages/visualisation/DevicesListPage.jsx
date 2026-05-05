@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { useDevices } from '../../context/DevicesContext';
 import { useAuth } from '../../context/AuthContext';
@@ -24,20 +24,20 @@ export default function DevicesListPage() {
   const [room, setRoom]   = useState('Toutes');
   const [status, setStatus] = useState('Tous');
 
-  const TYPES_OPTS = ['Tous', ...deviceTypes];
-  const ROOMS_OPTS = ['Toutes', ...rooms];
+  const TYPES_OPTS = useMemo(() => ['Tous', ...deviceTypes], [deviceTypes]);
+  const ROOMS_OPTS  = useMemo(() => ['Toutes', ...rooms], [rooms]);
 
-  const filtered = devices.filter(d => {
+  const filtered = useMemo(() => devices.filter(d => {
     const matchKw   = !kw || d.name.toLowerCase().includes(kw.toLowerCase()) || d.description?.toLowerCase().includes(kw.toLowerCase()) || d.brand?.toLowerCase().includes(kw.toLowerCase()) || d.tags?.some(t => t.toLowerCase().includes(kw.toLowerCase()));
     const matchType = type === 'Tous' || d.type === type;
     const matchRoom = room === 'Toutes' || d.room === room;
     const matchSt   = status === 'Tous' || (status === 'Actif' ? d.status === 'active' : d.status === 'inactive');
     return matchKw && matchType && matchRoom && matchSt;
-  });
+  }), [devices, kw, type, room, status]);
 
-  const handleView = (id) => {
-    logAction(currentUser.id);
-  };
+  const handleView = useCallback(() => {
+    logAction();
+  }, [logAction]);
 
   return (
     <div className="container section animate-fade">
