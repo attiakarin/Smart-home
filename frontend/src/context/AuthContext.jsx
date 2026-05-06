@@ -341,7 +341,10 @@ export function AuthProvider({ children }) {
   }, [currentUser]);
 
   const pendingAdminRequests = adminRequests.filter(request => request.status === 'nouvelle').length;
-  const unreadResidentReplies = residentRequests.filter(request => request.adminReply && !request.replyRead).length;
+  const CLOSED_STATUSES = ['en_cours', 'traitee', 'refusee'];
+  const unreadResidentReplies = residentRequests.filter(
+    request => request.adminReply && !request.replyRead && !CLOSED_STATUSES.includes(request.status)
+  ).length;
 
   const refreshResidentRequests = useCallback(async () => {
     if (!currentUser || isAdminUser(currentUser)) {
