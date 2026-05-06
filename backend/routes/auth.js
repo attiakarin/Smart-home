@@ -461,7 +461,7 @@ router.delete('/me', authenticate, async (req, res) => {
 
 router.post('/log-action', authenticate, async (req, res) => {
   try {
-    const settings = await getAppSettings();
+    const settings = await getAppSettings(req.user.maisonId);
     const { rows } = await pool.query('SELECT points, actions FROM users WHERE id = $1', [req.user.id]);
     if (!rows[0]) return res.status(404).json({ error: 'Utilisateur introuvable.' });
 
