@@ -1,16 +1,14 @@
 # Fiche d'Utilisation — Smart Home
 
-Application de gestion de maison connectée développée avec les frameworks **React + Vite**.
+Application de gestion de maison connectée développée avec **React + Vite** (frontend) et **Express.js + PostgreSQL** (backend).
 
 ---
-## Prérequis 
 
-```bash
-# Avoir installé Node.js. Si non, l'installer à cette adresse :
-https://nodejs.org/en/download
+## Prérequis
 
-```
-
+- **Node.js** ≥ 18 — [https://nodejs.org/en/download](https://nodejs.org/en/download)
+- **PostgreSQL** — base de données relationnelle requise pour le backend
+- Un fichier `.env` dans `backend/` (voir `backend/.env.example`)
 
 ---
 
@@ -18,22 +16,17 @@ https://nodejs.org/en/download
 
 ### Installation des dépendances
 
-**Option 1 : Installation complète** (frontend + backend)
 ```bash
+# Depuis la racine du projet
 npm install
 npm install --prefix backend
 ```
 
-**Option 2 : Installer uniquement le backend** *(si vous avez le problème `nodemon` non reconnu)*
-```bash
-npm install --prefix backend
-```
-
-> ⚠️ **Important** : Si `npm run dev` vous dit que `nodemon` n'est pas reconnu, c'est que les dépendances du backend ne sont pas installées. Exécutez `npm install --prefix backend`.
+> ⚠️ Si `npm run dev` signale que `nodemon` n'est pas reconnu, exécuter : `npm install --prefix backend`
 
 ### Lancer l'application
 
-**Mode complet** (frontend + backend ensemble)
+**Mode complet** (frontend + backend en parallèle)
 ```bash
 npm run dev
 ```
@@ -42,13 +35,13 @@ npm run dev
 ```bash
 npm run dev:frontend
 ```
-L'application sera accessible sur **http://localhost:5173**
+Accessible sur **http://localhost:5173**
 
 **Backend uniquement**
 ```bash
 npm run dev:backend
 ```
-L'API sera accessible sur **http://localhost:3000** (voir configuration dans `backend/server.js`)
+API REST accessible sur **http://localhost:3000**
 
 ---
 
@@ -56,32 +49,32 @@ L'API sera accessible sur **http://localhost:3000** (voir configuration dans `ba
 
 L'application est organisée en **4 modules** avec des accès progressifs selon le niveau de l'utilisateur.
 
-| Module          | URL                | Accès requis              |
-|-----------------|--------------------|---------------------------|
-| Information     | `/`                | Public (sans connexion)   |
-| Visualisation   | `/tableau-de-bord` | Tous les utilisateurs connectés |
-| Gestion         | `/gestion`         | Niveau **Avancé** ou **Expert** |
-| Administration  | `/admin`           | Niveau **Expert** uniquement |
+| Module         | URL                | Accès requis                          |
+|----------------|--------------------|---------------------------------------|
+| Information    | `/`                | Public (sans connexion)               |
+| Visualisation  | `/tableau-de-bord` | Tout utilisateur connecté             |
+| Gestion        | `/gestion`         | Niveau **Intermédiaire** minimum      |
+| Administration | `/admin`           | Niveau **Expert** + rôle `admin`      |
 
 ---
 
 ## Comptes de test
 
-Ces comptes sont pré-chargés dans l'application (données mockées).
+Les comptes sont enregistrés en base de données PostgreSQL.
 
 ### Comptes approuvés
 
-| Prénom   | Login            | Mot de passe  | Niveau        | Accès              |
-|----------|------------------|---------------|---------------|--------------------|
-| Sophie   | `admin_martin`   | `Admin2026!`  | Expert (75 pts)  | Tout (admin inclus) |
-| Jérôme   | `jerome_m`       | `Maison2026!` | Avancé (50 pts) | Info + Visu + Gestion |
-| Léa      | `lea_martin`     | `Lea2026!`    | Intermédiaire (25 pts) | Info + Visu |
-| Tom      | `tom_m`          | `Tom2026!`    | Débutant (0 pts)     | Info + Visu |
+| Prénom | Login          | Mot de passe  | Niveau              | Accès                       |
+|--------|----------------|---------------|---------------------|-----------------------------|
+| Sophie | `admin_martin` | `Admin2026!`  | Expert (75 pts)     | Tout (admin inclus)         |
+| Jérôme | `jerome_m`     | `Maison2026!` | Avancé (50 pts)     | Info + Visu + Gestion       |
+| Léa    | `lea_martin`   | `Lea2026!`    | Intermédiaire (25 pts) | Info + Visu + Gestion    |
+| Tom    | `tom_m`        | `Tom2026!`    | Débutant (0 pts)    | Info + Visu                 |
 
 ### Compte en attente
-| Prénom | Login     | Mot de passe | Statut  |
-|--------|-----------|--------------|---------|
-| Emma   | `emma_b`  | `Emma2026!`  | Pending — connexion bloquée jusqu'à validation par un admin |
+| Prénom | Login    | Mot de passe | Statut                                              |
+|--------|----------|--------------|-----------------------------------------------------|
+| Emma   | `emma_b` | `Emma2026!`  | Pending — connexion bloquée jusqu'à validation admin |
 
 > **Conseil** : Commencer avec `admin_martin` pour explorer toutes les fonctionnalités.
 
@@ -89,21 +82,21 @@ Ces comptes sont pré-chargés dans l'application (données mockées).
 
 ## Système de niveaux et points
 
-Chaque action en application rapporte des points qui débloquent des modules supplémentaires.
+Chaque action rapporte des points qui débloquent des modules supplémentaires.
 
-| Niveau        | Points requis | Couleur   | Modules accessibles          |
-|---------------|---------------|-----------|------------------------------|
-| Débutant      | 0 pts         | Gris      | Information + Visualisation  |
-| Intermédiaire | 25 pts        | Bleu      | Information + Visualisation  |
-| Avancé        | 50 pts        | Violet    | + Module Gestion             |
-| Expert        | 75 pts        | Orange    | + Module Administration      |
+| Niveau        | Points requis | Couleur   | Modules accessibles                  |
+|---------------|---------------|-----------|--------------------------------------|
+| Débutant      | 0 pts         | Gris      | Information + Visualisation          |
+| Intermédiaire | 25 pts        | Bleu      | + Module Gestion (activer/désactiver)|
+| Avancé        | 50 pts        | Violet    | + Création/configuration d'objets, Rapports |
+| Expert        | 75 pts        | Orange    | + Module Administration (si rôle admin) |
 
 ### Comment gagner des points
 
-| Action          | Points gagnés |
-|-----------------|---------------|
-| Connexion       | +0.25 pts     |
-| Consultation    | +0.50 pts     |
+| Action       | Points gagnés |
+|--------------|---------------|
+| Connexion    | +0.25 pts     |
+| Consultation | +0.50 pts     |
 
 ---
 
@@ -111,59 +104,80 @@ Chaque action en application rapporte des points qui débloquent des modules sup
 
 ### Module Information (public)
 - **`/`** — Page d'accueil : présentation de la maison connectée
-- **`/inscription`** — Créer un nouveau compte (statut *pending* par défaut)
-- **`/login`** — Connexion à l'application
+- **`/catalogue-maison`** — Catalogue public des objets connectés disponibles
+- **`/energie`** — Page publique sur la gestion d'énergie
+- **`/securite`** — Page publique sur la sécurité domicile
+- **`/creer-maison`** — Création d'une nouvelle maison (premier admin)
+- **`/inscription`** — Créer un compte (statut *pending* par défaut)
+- **`/login`** — Connexion
 
 ### Module Visualisation
-- **`/tableau-de-bord`** — Vue d'ensemble des objets et statistiques
-- **`/objets`** — Liste de tous les objets connectés
-- **`/objets/:id`** — Détail d'un objet connecté avec son historique
-- **`/membres`** — Liste des membres du foyer et leurs niveaux
+- **`/tableau-de-bord`** — Vue d'ensemble des objets, statistiques et accès rapides
+- **`/objets`** — Liste de tous les objets connectés de la maison
+- **`/objets/:id`** — Détail d'un objet : état, paramètres, historique
+- **`/services`** — Services interactifs : confort, sécurité, énergie, automatisation (programmation horaire)
+- **`/demandes-admin`** — Messagerie entre habitants et admin : créer/suivre une demande, recevoir une réponse
+- **`/membres`** — Liste des membres du foyer avec niveaux et points
 - **`/profil`** — Profil personnel, points et historique de connexion
 
-### Module Gestion *(Avancé/Expert)*
+### Module Gestion *(Intermédiaire minimum)*
 - **`/gestion`** — Tableau de bord de gestion avancée
-- **`/gestion/objet/:id`** — Contrôle et configuration d'un objet
-- **`/gestion/rapports`** — Rapports de consommation et statistiques
+- **`/gestion/objet/:id`** — Contrôle et configuration détaillée d'un objet
+- **`/gestion/rapports`** — Rapports de consommation et statistiques *(Avancé minimum)*
 
-### Module Administration *(Expert uniquement)*
+### Module Administration *(Expert + rôle admin)*
 - **`/admin`** — Tableau de bord administrateur
-- **`/admin/utilisateurs`** — Gestion des comptes (validation, suppression)
-- **`/admin/appareils`** — Ajout et gestion des appareils
-- **`/admin/parametres`** — Paramètres globaux de l'application
+- **`/admin/utilisateurs`** — Gestion des comptes : validation, modification, suppression
+- **`/admin/objets`** — Ajout, modification et suppression des objets connectés
+- **`/admin/consommation`** — Historique des dépassements de consommation et alertes
+- **`/admin/parametres`** — Paramètres globaux : nom de la plateforme, couleur, inscriptions, mode maintenance
 
 ---
 
-## Objets connectés disponibles
+## Système de demandes (messagerie admin ↔ habitant)
 
-10 appareils sont pré-configurés dans la base de données mock.
+La page **`/demandes-admin`** permet :
 
-| # | Nom                   | Type            | Pièce      | Marque       | Statut   |
-|---|-----------------------|-----------------|------------|--------------|----------|
-| 1 | Thermostat Salon      | Thermostat      | Salon      | Nest         | Actif    |
-| 2 | Caméra Entrée         | Caméra          | Entrée     | Ring         | Actif    |
-| 3 | Smart Bulb Chambre    | Éclairage       | Chambre    | Philips Hue  | Inactif  |
-| 4 | Lave-Linge Connecté   | Électroménager  | Buanderie  | Samsung      | Actif    |
-| 5 | Aspirateur Robot      | Robot           | Salon      | iRobot Roomba| Inactif  |
-| 6 | Lave-Vaisselle        | Électroménager  | Cuisine    | Bosch        | Actif    |
-| 7 | Serrure Connectée     | Sécurité        | Entrée     | Yale         | Actif    |
-| 8 | Capteur CO₂ Cuisine   | Capteur         | Cuisine    | Airthings    | Actif    |
-| 9 | Panneau Solaire       | Énergie         | Toit       | SolarEdge    | Actif    |
-|10 | Thermostat Chambre    | Thermostat      | Chambre    | Honeywell    | Actif    |
+- **Habitant** : créer une demande (ajout objet, configuration, maintenance, droits, autre), suivre son statut, échanger des messages avec l'admin
+- **Admin (Expert)** : voir toutes les demandes, répondre, changer le statut, attribuer des points bonus
+
+| Statut    | Description                          |
+|-----------|--------------------------------------|
+| Nouvelle  | Demande soumise, pas encore traitée  |
+| En cours  | Prise en charge par l'admin          |
+| Traitée   | Demande résolue                      |
+| Refusée   | Demande rejetée                      |
+
+> Le badge de notification sur "Demandes" n'apparaît que pour les demandes au statut **Nouvelle** (non fermées).
+
+---
+
+## Services interactifs (`/services`)
+
+La page Services permet d'appliquer des scénarios sur les objets compatibles :
+
+| Service      | Types d'objets compatibles                     | Action disponible                    |
+|--------------|------------------------------------------------|--------------------------------------|
+| Confort      | Thermostat, Éclairage, Sèche-serviette         | Définir une température cible        |
+| Sécurité     | Caméra, Capteur, Détecteur, Sécurité           | Activer la surveillance (mode)       |
+| Énergie      | Tout objet actif                               | Passer en mode éco / désactiver      |
+| Automatisation | Tout objet                                   | Programmer une plage horaire (jours + heures) |
+
+> Les services nécessitent d'être connecté. L'application des scénarios appelle l'API backend.
 
 ---
 
 ## Persistance des données
 
-Les données sont stockées dans le **localStorage** du navigateur sous les clés suivantes :
+Les données sont stockées en **base de données PostgreSQL** côté serveur. Seules quelques préférences légères sont conservées côté client :
 
-| Clé                | Contenu                          |
-|--------------------|----------------------------------|
-| `sh_users`         | Liste des utilisateurs           |
-| `sh_current_user`  | Utilisateur actuellement connecté|
-| `sh_devices`       | Liste des appareils              |
+| Clé localStorage   | Contenu                            |
+|--------------------|------------------------------------|
+| `sh_token`         | JWT d'authentification             |
+| `sh_current_user`  | Données de l'utilisateur connecté  |
+| `sh_settings`      | Cache des paramètres plateforme    |
 
-> Pour **réinitialiser** l'application, ouvrir la console du navigateur et exécuter :
+> Pour se déconnecter et réinitialiser la session locale :
 > ```js
 > localStorage.clear(); location.reload();
 > ```
@@ -172,19 +186,24 @@ Les données sont stockées dans le **localStorage** du navigateur sous les clé
 
 ## Stack technique
 
-| Technologie     | Usage                          |
-|-----------------|-------------------------------|
-| React 18        | Framework UI                  |
-| Vite 5          | Bundler et serveur de dev     |
-| React Router 6  | Navigation entre les pages    |
-| Recharts        | Graphiques et visualisations  |
-| Lucide React    | Icônes                        |
+| Technologie      | Usage                              |
+|------------------|------------------------------------|
+| React 18         | Framework UI                       |
+| Vite 5           | Bundler et serveur de dev          |
+| React Router 6   | Navigation entre les pages         |
+| Recharts         | Graphiques et visualisations       |
+| Lucide React     | Icônes                             |
+| Express.js 4     | API REST backend                   |
+| PostgreSQL + pg  | Base de données relationnelle      |
+| JWT + bcryptjs   | Authentification sécurisée         |
+| express-validator| Validation des entrées API         |
 
 ---
 
 ## Notes pour les partenaires
 
-- **Aucune API ni base de données réelle** — tout est simulé via `mockData.js` et `localStorage`.
-- Pour ajouter un utilisateur de test, modifier directement le tableau `USERS` dans `src/data/mockData.js`.
-- Pour ajouter un appareil, modifier le tableau `DEVICES` dans `src/data/mockData.js`.
+- Les données sont persistées en **PostgreSQL** — aucune donnée mock n'est utilisée en production.
+- Le fichier `backend/.env` doit contenir les variables `DB_*`, `JWT_SECRET` et `PORT`.
+- Pour réinitialiser les données de test, utiliser les scripts dans `backend/scripts/`.
 - Le compte `emma_b` est volontairement en statut `pending` pour illustrer le flux de validation admin.
+- Le mode **maintenance** (activable depuis `/admin/parametres`) déconnecte tous les non-admins.
