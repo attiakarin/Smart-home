@@ -258,9 +258,8 @@ export default function ServicesPage() {
   const { devices, updateDevice } = useDevices();
   const [services, setServices] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [keyword, setKeyword] = useState('');
   const [type, setType] = useState('Tous');
-  const [level, setLevel] = useState('Tous');
+  const [level] = useState('Tous');
 
   // modal
   const [selectedService, setSelectedService] = useState(null);
@@ -294,9 +293,7 @@ export default function ServicesPage() {
   ), [services]);
 
   const filtered = services.filter(service => {
-    const text = `${service.name} ${service.description} ${service.service_type}`.toLowerCase();
-    return (!keyword || text.includes(keyword.toLowerCase()))
-      && (type === 'Tous' || service.service_type === type);
+    return (type === 'Tous' || service.service_type === type);
   });
 
   const compatibleDevices = useMemo(() => {
@@ -382,14 +379,15 @@ export default function ServicesPage() {
           const patch = config
             ? config.applyPatch(globalConfig, deviceConfigs[id])
             : { status: 'active' };
-          await updateDevice(id, patch);
           // Construit un résumé lisible des valeurs appliquées
           const details = [];
-          if (patch.status)                        details.push(`Statut → ${patch.status === 'active' ? '✅ Actif' : '🔴 Inactif'}`);
-          if (patch.settings?.temperature_consigne) details.push(`🌡 ${patch.settings.temperature_consigne} °C`);
-          if (patch.settings?.mode_securite)        details.push(`🔒 ${patch.settings.mode_securite}`);
+          if (patch.settings?.temperature_consigne) details.push(`🌡 Température : ${patch.settings.temperature_consigne} °C`);
+          if (patch.settings?.mode_securite)        details.push(`🔒 Surveillance : ${patch.settings.mode_securite}`);
           if (patch.settings?.mode_eco === '1')     details.push('⚡ Mode éco activé');
+          if (patch.settings?.mode_eco === '0')     details.push('🔌 Appareils désactivés');
           if (patch.settings?.suivi_actif === '1')  details.push('📊 Suivi activé');
+          const serviceLabel = `${selectedService.name}${details.length ? ' — ' + details.join(' · ') : ''}`;
+          await updateDevice(id, { ...patch, serviceLabel });
           successes.push({ name: d?.name ?? String(id), detail: details.join(' · ') || 'Appliqué' });
         }
         successCount++;
@@ -438,41 +436,7 @@ export default function ServicesPage() {
         <span className="badge badge-primary">{filtered.length} service(s)</span>
       </div>
 
-      <form
-        className="flex gap-2 mb-4"
-        style={{ flexWrap: 'wrap' }}
-        role="search"
-        aria-label="Filtrer les services"
-        onSubmit={e => e.preventDefault()}
-      >
-        <input
-          type="search"
-          className="form-input"
-          placeholder="Nom, description, type..."
-          value={keyword}
-          onChange={e => setKeyword(e.target.value)}
-          aria-label="Mot-clé"
-          style={{ flex: 1, minWidth: 220 }}
-        />
-        <select
-          className="form-select"
-          value={type}
-          onChange={e => setType(e.target.value)}
-          aria-label="Type de service"
-          style={{ minWidth: 170 }}
-        >
-          {serviceTypes.map(o => <option key={o}>{o}</option>)}
-        </select>
-        <select
-          className="form-select"
-          value={level}
-          onChange={e => setLevel(e.target.value)}
-          aria-label="Niveau requis"
-          style={{ minWidth: 160 }}
-        >
-          {LEVELS.map(o => <option key={o}>{o}</option>)}
-        </select>
-      </form>
+
 
       <div className="grid grid-3" role="list" aria-label="Liste des services">
         {filtered.map(service => {

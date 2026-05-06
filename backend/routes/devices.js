@@ -55,7 +55,18 @@ async function fetchDevice(id, user) {
     return acc;
   }, {});
 
-  return { ...mapDevice(rows[0]), settings };
+  const hist = await pool.query(
+    'SELECT valeur, unite, enregistre_a, description FROM historique_objet WHERE objt_id = $1 ORDER BY enregistre_a ASC LIMIT 30',
+    [id]
+  );
+  const history = hist.rows.map(r => ({
+    value: Number(r.valeur),
+    unit: r.unite,
+    date: r.enregistre_a,
+    description: r.description || null,
+  }));
+
+  return { ...mapDevice(rows[0]), settings, history };
 }
 
 async function saveDeviceSettings(deviceId, settings = {}) {
@@ -97,12 +108,18 @@ router.get('/:id', authenticate, async (req, res) => {
     const device = await fetchDevice(req.params.id, req.user);
     if (!device) return res.status(404).json({ error: 'Objet introuvable.' });
 
-    const { rows } = await pool.query(
-      'SELECT valeur, unite, enregistre_a FROM historique_objet WHERE objt_id = $1 ORDER BY enregistre_a DESC LIMIT 30',
+    const { rows: histRows } = await pool.query(
+      'SELECT valeur, unite, enregistre_a, description FROM historique_objet WHERE objt_id = $1 ORDER BY enregistre_a ASC LIMIT 30',
       [req.params.id]
     );
+    const history = histRows.map(r => ({
+      value: Number(r.valeur),
+      unit: r.unite,
+      date: r.enregistre_a,
+      description: r.description || null,
+    }));
 
-    res.json({ ...device, history: rows });
+    res.json({ ...device, history });
   } catch (err) {
     console.error(err);
     res.status(err.status || 500).json({ error: err.message || 'Erreur serveur.' });
@@ -198,11 +215,13 @@ router.put('/:id', authenticate, requireModule('device_config'), async (req, res
     );
     if (updatedRows.rowCount === 0) return res.status(404).json({ error: 'Objet introuvable.' });
 
-    if (mapped.statut !== undefined) {
-      const dbStatus = mapStatusToDb(mapped.statut);
+    if (mapped.statut !== undefined || req.body.serviceLabel) {
+      const dbStatus = mapped.statut !== undefined ? mapStatusToDb(mapped.statut) : null;
+      const val = dbStatus ? (dbStatus === 'Active' ? 1 : 0) : 1;
+      const description = req.body.serviceLabel || null;
       await pool.query(
-        'INSERT INTO historique_objet (objt_id, valeur, unite) VALUES ($1, $2, $3)',
-        [req.params.id, dbStatus === 'Active' ? 1 : 0, 'etat']
+        'INSERT INTO historique_objet (objt_id, valeur, unite, description) VALUES ($1, $2, $3, $4)',
+        [req.params.id, val, dbStatus ? 'etat' : 'service', description]
       );
       try {
         const config = await getConfig(req.user.maisonId);

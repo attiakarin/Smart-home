@@ -1,9 +1,10 @@
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useDevices } from '../../context/DevicesContext';
 import { useAuth } from '../../context/AuthContext';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { ArrowLeft, Lock, Wifi, Battery, Thermometer, Zap, Clock, Cpu } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
+import { devicesAPI } from '../../services/api';
 
 // ── Limite de consommation autorisée selon le niveau ─────────────────────────
 function getEnergyLimit(niveau) {
@@ -19,10 +20,17 @@ export default function DeviceDetailPage() {
   const { getDevice } = useDevices();
   const { logAction, currentUser } = useAuth();
   const navigate = useNavigate();
-  const device = getDevice(id);
+  const [deviceDetail, setDeviceDetail] = useState(null);
+  const device = deviceDetail ?? getDevice(id);
 
   const energyLimit = getEnergyLimit(currentUser?.niveau);
   const locked = device && Number(device.energyConsumption || 0) > energyLimit;
+
+  useEffect(() => {
+    let active = true;
+    devicesAPI.getOne(id).then(d => { if (active) setDeviceDetail(d); }).catch(() => {});
+    return () => { active = false; };
+  }, [id]);
 
   useEffect(() => {
     if (device && !locked) logAction(currentUser.id);
@@ -159,23 +167,41 @@ export default function DeviceDetailPage() {
           <div className="card">
             <h2 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '1rem' }}>Historique (30 derniers jours)</h2>
             {device.history && device.history.length > 0 ? (
-              <ResponsiveContainer width="100%" height={220}>
-                <LineChart data={device.history} aria-label="Graphique historique de l'objet">
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                  <XAxis
-                    dataKey="date"
-                    tick={{ fontSize: 10 }}
-                    tickFormatter={v => v.slice(5)}
-                    interval={4}
-                  />
-                  <YAxis tick={{ fontSize: 10 }} />
-                  <Tooltip
-                    labelFormatter={l => `Date: ${l}`}
-                    formatter={(v, n, p) => [`${v} ${p.payload.unit}`, 'Valeur']}
-                  />
-                  <Line type="monotone" dataKey="value" stroke="#1a73e8" strokeWidth={2} dot={false} />
-                </LineChart>
-              </ResponsiveContainer>
+              <>
+                <ResponsiveContainer width="100%" height={220}>
+                  <LineChart data={device.history} aria-label="Graphique historique de l'objet">
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                    <XAxis
+                      dataKey="date"
+                      tick={{ fontSize: 10 }}
+                      tickFormatter={v => new Date(v).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                      interval="preserveStartEnd"
+                    />
+                    <YAxis tick={{ fontSize: 10 }} />
+                    <Tooltip
+                      labelFormatter={l => `Le ${new Date(l).toLocaleString('fr-FR')}`}
+                      formatter={(v, n, p) => [`${v} ${p.payload.unit ?? ''}`, 'Valeur']}
+                    />
+                    <Line type="monotone" dataKey="value" stroke="#1a73e8" strokeWidth={2} dot={{ r: 3 }} />
+                  </LineChart>
+                </ResponsiveContainer>
+                <ul style={{ marginTop: '1rem', listStyle: 'none', padding: 0, display: 'flex', flexDirection: 'column', gap: '.45rem' }}>
+                  {[...device.history].reverse().map((entry, i) => (
+                    <li key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '.6rem', fontSize: '.83rem', borderBottom: '1px solid var(--color-border)', paddingBottom: '.4rem' }}>
+                      <span style={{ color: 'var(--color-text-muted)', whiteSpace: 'nowrap', minWidth: 120 }}>
+                        {new Date(entry.date).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                      {entry.description ? (
+                        <span style={{ color: 'var(--color-text)', fontWeight: 600 }}>{entry.description}</span>
+                      ) : (
+                        <span style={{ color: entry.value === 1 ? '#16a34a' : '#dc2626', fontWeight: 600 }}>
+                          {entry.value === 1 ? '✅ Actif' : '🔴 Inactif'}
+                        </span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </>
             ) : (
               <p style={{ color: 'var(--color-text-muted)', textAlign: 'center', padding: '2rem 0' }}>Pas de données historiques.</p>
             )}

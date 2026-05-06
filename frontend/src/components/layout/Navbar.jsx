@@ -61,9 +61,11 @@ export default function Navbar() {
               <li><NavLink to="/objets" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>
                 <Cpu size={15} aria-hidden="true" /> Objets
               </NavLink></li>
+              {canAccess('reports') && (
               <li><NavLink to="/services" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>
                 <Wrench size={15} aria-hidden="true" /> Services
               </NavLink></li>
+              )}
               <li><NavLink to="/demandes-admin" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>
                 <MessageSquare size={15} aria-hidden="true" /> Demandes
                 {messageNotifications > 0 && <span className="nav-notification">{messageNotifications}</span>}
@@ -177,7 +179,7 @@ export default function Navbar() {
             <>
               <NavLink to="/tableau-de-bord" onClick={() => setMenuOpen(false)} className="mob-link">Dashboard</NavLink>
               <NavLink to="/objets"          onClick={() => setMenuOpen(false)} className="mob-link">Objets connectés</NavLink>
-              <NavLink to="/services"        onClick={() => setMenuOpen(false)} className="mob-link">Services</NavLink>
+              {canAccess('reports') && <NavLink to="/services" onClick={() => setMenuOpen(false)} className="mob-link">Services</NavLink>}
               <NavLink to="/demandes-admin"  onClick={() => setMenuOpen(false)} className="mob-link">Demandes admin</NavLink>
               <NavLink to="/profil"          onClick={() => setMenuOpen(false)} className="mob-link">Mon profil</NavLink>
               {canAccess('gestion') && <NavLink to="/gestion" onClick={() => setMenuOpen(false)} className="mob-link">Gestion</NavLink>}

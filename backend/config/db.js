@@ -21,6 +21,7 @@ export async function testConnection() {
     await pool.query('SELECT NOW()');
     await pool.query('ALTER TABLE objets ADD COLUMN IF NOT EXISTS photo TEXT');
     await pool.query('ALTER TABLE objets ADD COLUMN IF NOT EXISTS user_id INT REFERENCES users(id) ON DELETE SET NULL');
+    await pool.query('ALTER TABLE historique_objet ADD COLUMN IF NOT EXISTS description TEXT');
 
     // Table des règles d'automatisation
     await pool.query(`
