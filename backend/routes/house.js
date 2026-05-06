@@ -389,8 +389,8 @@ function mapConsumptionAlert(row) {
     budgetKwh: Number(row.budget_kwh || 0),
     exceeded: Number(row.budget_kwh || 0) > 0 && Number(row.consommation_kwh || 0) > Number(row.budget_kwh || 0),
     maintenanceTriggered: true,
-    alertAt: row.alerte_at,
-    resolvedAt: row.resolu_at,
+    alertAt: toParisDateTime(row.alerte_at),
+    resolvedAt: toParisDateTime(row.resolu_at),
     resolved: Boolean(row.resolu_at) || !(Number(row.budget_kwh || 0) > 0 && Number(row.consommation_kwh || 0) > Number(row.budget_kwh || 0)),
     topDevice: row.top_objet_id ? {
       id: row.top_objet_id,
@@ -399,6 +399,42 @@ function mapConsumptionAlert(row) {
     } : null,
     updatedAt: row.updated_at,
   };
+}
+
+function toParisDateTime(value) {
+  if (!value) return null;
+  const date = value instanceof Date ? value : new Date(`${String(value).replace(' ', 'T')}Z`);
+  if (Number.isNaN(date.getTime())) return value;
+
+  const parts = new Intl.DateTimeFormat('fr-FR', {
+    timeZone: 'Europe/Paris',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(date).reduce((acc, part) => {
+    if (part.type !== 'literal') acc[part.type] = part.value;
+    return acc;
+  }, {});
+
+  const asUtc = Date.UTC(
+    Number(parts.year),
+    Number(parts.month) - 1,
+    Number(parts.day),
+    Number(parts.hour),
+    Number(parts.minute),
+    Number(parts.second)
+  );
+  const offsetMinutes = Math.round((asUtc - date.getTime()) / 60000);
+  const sign = offsetMinutes >= 0 ? '+' : '-';
+  const absOffset = Math.abs(offsetMinutes);
+  const offsetHours = String(Math.floor(absOffset / 60)).padStart(2, '0');
+  const offsetMins = String(absOffset % 60).padStart(2, '0');
+
+  return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}:${parts.second}${sign}${offsetHours}:${offsetMins}`;
 }
 
 function makeWarnings(devices, budget) {
