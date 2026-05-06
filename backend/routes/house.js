@@ -35,6 +35,26 @@ async function ensureHouseTables() {
       UNIQUE (maison_id, mois)
     )
   `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS consommation_alertes (
+      id SERIAL PRIMARY KEY,
+      maison_id INT NOT NULL REFERENCES maisons(id) ON DELETE CASCADE,
+      mois CHAR(7) NOT NULL,
+      consommation_kwh NUMERIC(10,2) NOT NULL DEFAULT 0,
+      budget_kwh NUMERIC(10,2) NOT NULL DEFAULT 0,
+      alerte_at TIMESTAMP NOT NULL DEFAULT NOW(),
+      resolu_at TIMESTAMP,
+      top_objet_id INT REFERENCES objets(id) ON DELETE SET NULL,
+      top_objet_nom VARCHAR(120),
+      top_objet_conso NUMERIC(10,2) NOT NULL DEFAULT 0,
+      updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+    )
+  `);
+  await pool.query(`
+    CREATE UNIQUE INDEX IF NOT EXISTS consommation_alertes_active_idx
+    ON consommation_alertes (maison_id)
+    WHERE resolu_at IS NULL
+  `);
   await pool.query('ALTER TABLE consommation_mensuelle ADD COLUMN IF NOT EXISTS alerte_at TIMESTAMP');
   await pool.query('ALTER TABLE consommation_mensuelle ADD COLUMN IF NOT EXISTS resolu_at TIMESTAMP');
   await pool.query('ALTER TABLE consommation_mensuelle ADD COLUMN IF NOT EXISTS top_objet_id INT REFERENCES objets(id) ON DELETE SET NULL');
@@ -150,6 +170,75 @@ async function getTopConsumer(maisonId) {
   return rows2[0] || null;
 }
 
+async function upsertActiveConsumptionAlert(maisonId, month, consumption, budget, topConsumer) {
+  const active = await pool.query(
+    `SELECT *
+     FROM consommation_alertes
+     WHERE maison_id = $1
+       AND resolu_at IS NULL
+     ORDER BY alerte_at DESC
+     LIMIT 1`,
+    [maisonId]
+  );
+
+  if (active.rows[0]) {
+    const { rows } = await pool.query(
+      `UPDATE consommation_alertes
+       SET mois = $1,
+           consommation_kwh = $2,
+           budget_kwh = $3,
+           top_objet_id = $4,
+           top_objet_nom = $5,
+           top_objet_conso = $6,
+           updated_at = NOW()
+       WHERE id = $7
+       RETURNING *`,
+      [
+        month,
+        consumption,
+        budget,
+        topConsumer?.id || null,
+        topConsumer?.nom || null,
+        Number(topConsumer?.consommation || 0),
+        active.rows[0].id,
+      ]
+    );
+    return rows[0];
+  }
+
+  const { rows } = await pool.query(
+    `INSERT INTO consommation_alertes (
+       maison_id, mois, consommation_kwh, budget_kwh,
+       top_objet_id, top_objet_nom, top_objet_conso
+     )
+     VALUES ($1, $2, $3, $4, $5, $6, $7)
+     RETURNING *`,
+    [
+      maisonId,
+      month,
+      consumption,
+      budget,
+      topConsumer?.id || null,
+      topConsumer?.nom || null,
+      Number(topConsumer?.consommation || 0),
+    ]
+  );
+  return rows[0];
+}
+
+async function resolveActiveConsumptionAlert(maisonId) {
+  const { rows } = await pool.query(
+    `UPDATE consommation_alertes
+     SET resolu_at = NOW(),
+         updated_at = NOW()
+     WHERE maison_id = $1
+       AND resolu_at IS NULL
+     RETURNING *`,
+    [maisonId]
+  );
+  return rows[0] || null;
+}
+
 async function ensureMaintenanceRequest(maisonId, consumption, budget, topConsumer) {
   const month = currentMonthKey();
   const title = `Depassement consommation ${month}`;
@@ -213,6 +302,19 @@ async function resolveMaintenanceRequest(maisonId) {
 async function saveMonthlyConsumption(maisonId, consumption, budget, topConsumer) {
   const month = currentMonthKey();
   const exceeded = budget > 0 && consumption > budget;
+  const previous = await pool.query(
+    `SELECT *
+     FROM consommation_mensuelle
+     WHERE maison_id = $1 AND mois = $2
+     LIMIT 1`,
+    [maisonId, month]
+  );
+  const previousWasExceeded =
+    Number(previous.rows[0]?.budget_kwh || 0) > 0 &&
+    Number(previous.rows[0]?.consommation_kwh || 0) > Number(previous.rows[0]?.budget_kwh || 0) &&
+    !previous.rows[0]?.resolu_at;
+  const alertTimestampSql = exceeded && !previousWasExceeded ? 'NOW()' : 'consommation_mensuelle.alerte_at';
+
   const { rows } = await pool.query(
     `INSERT INTO consommation_mensuelle (
        maison_id, mois, consommation_kwh, budget_kwh, maintenance_declenchee,
@@ -224,7 +326,7 @@ async function saveMonthlyConsumption(maisonId, consumption, budget, topConsumer
                    budget_kwh = EXCLUDED.budget_kwh,
                    maintenance_declenchee = consommation_mensuelle.maintenance_declenchee OR EXCLUDED.maintenance_declenchee,
                    alerte_at = CASE
-                     WHEN consommation_mensuelle.alerte_at IS NULL AND EXCLUDED.maintenance_declenchee THEN NOW()
+                     WHEN EXCLUDED.maintenance_declenchee THEN ${alertTimestampSql}
                      ELSE consommation_mensuelle.alerte_at
                    END,
                    resolu_at = CASE
@@ -249,12 +351,15 @@ async function saveMonthlyConsumption(maisonId, consumption, budget, topConsumer
     ]
   );
 
+  let activeAlert = null;
   if (exceeded) {
+    activeAlert = await upsertActiveConsumptionAlert(maisonId, month, consumption, budget, topConsumer);
     const settings = await getAppSettings(maisonId);
     // Assurer que le mode maintenance est active pour la maison
     await saveAppSettings({ ...settings, maintenanceMode: true }, maisonId);
     await ensureMaintenanceRequest(maisonId, consumption, budget, topConsumer);
   } else {
+    const resolvedAlert = await resolveActiveConsumptionAlert(maisonId);
     const settings = await getAppSettings(maisonId);
     // Si la consommation n'est plus depassee mais que le record montre un declenchement,
     // desactiver le mode maintenance pour la maison.
@@ -262,12 +367,20 @@ async function saveMonthlyConsumption(maisonId, consumption, budget, topConsumer
       await saveAppSettings({ ...settings, maintenanceMode: false }, maisonId);
     }
     await resolveMaintenanceRequest(maisonId);
+    if (resolvedAlert && rows[0]) {
+      rows[0].resolu_at = resolvedAlert.resolu_at;
+    }
+  }
+
+  if (activeAlert && rows[0]) {
+    rows[0].alerte_at = activeAlert.alerte_at;
+    rows[0].resolu_at = activeAlert.resolu_at;
   }
 
   return rows[0];
 }
 
-function mapMonthlyConsumption(row) {
+function mapConsumptionAlert(row) {
   return {
     id: row.id,
     maisonId: row.maison_id,
@@ -275,7 +388,7 @@ function mapMonthlyConsumption(row) {
     consumptionKwh: Number(row.consommation_kwh || 0),
     budgetKwh: Number(row.budget_kwh || 0),
     exceeded: Number(row.budget_kwh || 0) > 0 && Number(row.consommation_kwh || 0) > Number(row.budget_kwh || 0),
-    maintenanceTriggered: Boolean(row.maintenance_declenchee),
+    maintenanceTriggered: true,
     alertAt: row.alerte_at,
     resolvedAt: row.resolu_at,
     resolved: Boolean(row.resolu_at) || !(Number(row.budget_kwh || 0) > 0 && Number(row.consommation_kwh || 0) > Number(row.budget_kwh || 0)),
@@ -402,13 +515,13 @@ router.get('/consumption/history', requireModule('administration'), async (req, 
 
     const { rows } = await pool.query(
       `SELECT *
-       FROM consommation_mensuelle
+       FROM consommation_alertes
        WHERE maison_id = $1
-       ORDER BY mois DESC
+       ORDER BY alerte_at DESC
        LIMIT 24`,
       [req.user.maisonId]
     );
-    res.json(rows.map(mapMonthlyConsumption));
+    res.json(rows.map(mapConsumptionAlert));
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Erreur serveur.' });
