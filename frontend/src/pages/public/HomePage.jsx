@@ -323,9 +323,8 @@ function PublicHome() {
           <div className="section-heading-row">
             <div>
               <h2 className="section-divider">Services de la plateforme</h2>
-              <p style={{ color: 'var(--color-text-muted)' }}>Découvrez ce que les habitants peuvent activer selon leur niveau.</p>
+              <p style={{ color: 'var(--color-text-muted)' }}>Les services sont gérés par les habitants avancés et les experts.</p>
             </div>
-            <FilterSelect label="Catégorie" value={serviceCategory} onChange={setServiceCategory} options={serviceCategories} />
           </div>
           <div className="service-category-tabs" aria-label="Catégories de services">
             {serviceCategories.map(category => (
@@ -348,10 +347,13 @@ function PublicHome() {
                 role="listitem"
                 onClick={() => setSelectedService(service)}
               >
-                <span className="badge badge-primary">{service.service_type}</span>
+                <div className="service-public-card__top">
+                  <span className="service-public-card__category">{service.service_type || 'service'}</span>
+                  <span className="service-public-card__access">Avancé / Expert</span>
+                </div>
                 <h3>{service.name}</h3>
                 <p>{service.description}</p>
-                <small>Niveau requis: {service.min_niveau}</small>
+                <small>Gestion réservée aux niveaux avancé et expert</small>
               </button>
             ))}
             {!loading && filteredServices.length === 0 && (
@@ -406,7 +408,7 @@ function ServiceModal({ service, onClose }) {
   return (
     <div className="modal-overlay guide-modal-overlay" role="presentation" onMouseDown={onClose}>
       <section
-        className="modal guide-modal"
+        className="modal guide-modal service-modal"
         role="dialog"
         aria-modal="true"
         aria-labelledby="service-modal-title"
@@ -423,15 +425,21 @@ function ServiceModal({ service, onClose }) {
         </header>
         <div className="modal-body guide-modal__body">
           <p className="guide-modal__intro">{service.description}</p>
+          <div className="service-modal__access">
+            <strong>Gestion du service</strong>
+            <span>Réservée aux habitants avancés et aux experts dans l'espace connecté.</span>
+          </div>
           <div className="guide-modal__steps" aria-label="Informations du service">
             <div className="guide-modal__step">
               <span>1</span>
-              <strong>Niveau requis: {service.min_niveau}</strong>
+              <strong>Activation et configuration</strong>
+              <small>Ces actions sont disponibles après connexion avec un niveau avancé ou expert.</small>
             </div>
             {service.categorie_nom && (
               <div className="guide-modal__step">
                 <span>2</span>
                 <strong>Catégorie: {service.categorie_nom}</strong>
+                <small>Utilisez les bulles pour filtrer les services par catégorie.</small>
               </div>
             )}
           </div>
