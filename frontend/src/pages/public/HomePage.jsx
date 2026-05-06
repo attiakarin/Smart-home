@@ -23,6 +23,7 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { useDevices } from '../../context/DevicesContext';
 import { publicAPI, usersAPI, houseAPI, requestsAPI } from '../../services/api';
+import { formatDateTime } from '../../constants/smartHome';
 import './HomePage.css';
 
 const ALL = 'Tous';
@@ -714,7 +715,7 @@ function ConsumptionHistoryPanel({ history, currentConsumption }) {
           <table className="table" style={{ fontSize: '.85rem' }} aria-label="Historique de consommation">
             <thead>
               <tr>
-                <th scope="col">Mois</th>
+                <th scope="col">Date alerte</th>
                 <th scope="col">Conso. (kWh)</th>
                 <th scope="col">Budget (kWh)</th>
                 <th scope="col">Statut</th>
@@ -722,8 +723,8 @@ function ConsumptionHistoryPanel({ history, currentConsumption }) {
             </thead>
             <tbody>
               {recentAlerts.map(item => (
-                <tr key={item.month} style={{ opacity: item.resolvedAt ? 0.6 : 1 }}>
-                  <td style={{ fontWeight: 600 }}>{item.month}</td>
+                <tr key={item.id} style={{ opacity: item.resolvedAt ? 0.6 : 1 }}>
+                  <td>{formatDateTime(item.alertAt)}</td>
                   <td>{Number(item.consumptionKwh || 0).toFixed(1)}</td>
                   <td>{Number(item.budgetKwh || 0).toFixed(1)}</td>
                   <td>

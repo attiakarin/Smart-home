@@ -43,7 +43,7 @@ export default function AdminConsumption() {
         <div>
           <h1>Dépassements de consommation</h1>
           <p style={{ color: 'var(--color-text-muted)' }}>
-            Historique des alertes mensuelles, dates de déclenchement, résolution et objets les plus consommateurs.
+            Historique des alertes, dates de déclenchement, résolution et objets les plus consommateurs.
           </p>
         </div>
         <span className={`badge ${activeAlerts.length ? 'badge-danger' : 'badge-success'}`}>
@@ -64,7 +64,7 @@ export default function AdminConsumption() {
         <div className="card text-center">
           <Zap size={22} color="#f59e0b" />
           <strong style={{ display: 'block', marginTop: '.5rem', fontSize: '1.4rem', color: '#f59e0b' }}>{history.length}</strong>
-          <p style={{ color: 'var(--color-text-muted)' }}>Mois suivis</p>
+          <p style={{ color: 'var(--color-text-muted)' }}>Alertes enregistrées</p>
         </div>
         <div className="card text-center">
           <AlertTriangle size={22} color="#ef4444" />
@@ -99,7 +99,7 @@ export default function AdminConsumption() {
             ) : history.length === 0 ? (
               <tr><td colSpan={7}>Aucun historique pour le moment.</td></tr>
             ) : history.map(row => (
-              <tr key={row.id || row.month}>
+              <tr key={row.id}>
                 <td style={{ fontWeight: 700 }}>{row.month}</td>
                 <td>{Number(row.consumptionKwh || 0).toFixed(1)} kWh</td>
                 <td>{Number(row.budgetKwh || 0).toFixed(1)} kWh</td>
