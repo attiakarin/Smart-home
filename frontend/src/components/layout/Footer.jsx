@@ -16,7 +16,7 @@ export default function Footer() {
         <nav aria-label="Liens du pied de page">
           <ul className="footer-links" role="list">
             <li><Link to="/">Accueil</Link></li>
-            {!currentUser && <li><Link to="/inscription">Inscription</Link></li>}
+            {!currentUser && <li><Link to="/inscription">Rejoindre une maison</Link></li>}
           </ul>
         </nav>
         <p className="footer-copy">© {year} Ma Maison Connectée — Projet ING1</p>

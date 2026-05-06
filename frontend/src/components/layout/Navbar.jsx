@@ -90,7 +90,7 @@ export default function Navbar() {
           <ul className="navbar-links-right" role="list">
             <li><NavLink to="/login" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>Connexion</NavLink></li>
             <li><NavLink to="/creer-maison" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>Créer ma maison</NavLink></li>
-            <li><NavLink to="/inscription" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>Inscription</NavLink></li>
+            <li><NavLink to="/inscription" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>Rejoindre une maison</NavLink></li>
           </ul>
         )}
 
@@ -193,7 +193,7 @@ export default function Navbar() {
               <NavLink to="/securite"         onClick={() => setMenuOpen(false)} className="mob-link">Sécurité</NavLink>
               <NavLink to="/login"       onClick={() => setMenuOpen(false)} className="mob-link">Connexion</NavLink>
               <NavLink to="/creer-maison" onClick={() => setMenuOpen(false)} className="mob-link">Créer ma maison</NavLink>
-              <NavLink to="/inscription" onClick={() => setMenuOpen(false)} className="mob-link">Inscription</NavLink>
+              <NavLink to="/inscription" onClick={() => setMenuOpen(false)} className="mob-link">Rejoindre une maison</NavLink>
             </>
           )}
         </div>
