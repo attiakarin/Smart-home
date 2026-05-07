@@ -3,19 +3,19 @@
    Palette inspirée de l'image (bleu-vert, blanc, gris clair)
    ============================================================ */
 :root {
-  --color-primary: #1a73e8;
-  --color-primary-dark: #1558b0;
+  --color-primary: #0d9488;
+  --color-primary-dark: #0f766e;
   --color-secondary: #34a853;
   --color-secondary-dark: #277040;
   --color-accent: #f9ab00;
   --color-danger: #ea4335;
-  --color-bg: #f0f4f8;
+  --color-bg: #f0faf9;
   --color-bg-card: #ffffff;
   --color-text: #1f2937;
   --color-text-muted: #6b7280;
   --color-border: #e5e7eb;
-  --color-hero-from: #dbeafe;
-  --color-hero-to: #e0f2fe;
+  --color-hero-from: #ccfbf1;
+  --color-hero-to: #d1fae5;
 
   --radius-sm: 8px;
   --radius-md: 14px;
@@ -179,7 +179,7 @@ input, select, textarea { font-family: inherit; }
 .form-input:focus, .form-select:focus, .form-textarea:focus {
   outline: none;
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px rgba(26,115,232,.15);
+  box-shadow: 0 0 0 3px rgba(13,148,136,.15);
 }
 .form-error { color: var(--color-danger); font-size: .82rem; }
 .form-hint { color: var(--color-text-muted); font-size: .82rem; }
@@ -238,7 +238,7 @@ input, select, textarea { font-family: inherit; }
   font-size: .78rem;
   font-weight: 600;
 }
-.badge-primary { background: #dbeafe; color: var(--color-primary); }
+.badge-primary { background: #ccfbf1; color: var(--color-primary); }
 .badge-success { background: #d1fae5; color: #15803d; }
 .badge-warning { background: #fef3c7; color: #b45309; }
 .badge-danger  { background: #fee2e2; color: var(--color-danger); }
@@ -302,7 +302,7 @@ input, select, textarea { font-family: inherit; }
 .alert-success { background: #d1fae5; color: #15803d; border-left: 3px solid #22c55e; }
 .alert-error   { background: #fee2e2; color: #991b1b; border-left: 3px solid #ef4444; }
 .alert-warning { background: #fef3c7; color: #92400e; border-left: 3px solid #f59e0b; }
-.alert-info    { background: #dbeafe; color: #1e40af; border-left: 3px solid var(--color-primary); }
+.alert-info    { background: #ccfbf1; color: #0f5e58; border-left: 3px solid var(--color-primary); }
 
 /* ============================================================
    MODAL

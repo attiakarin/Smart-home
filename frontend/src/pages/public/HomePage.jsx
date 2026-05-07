@@ -231,6 +231,7 @@ function PublicHome() {
   return (
     <div className="home-page">
       <section className="hero" aria-labelledby="hero-title">
+        <PlantDecorations />
         <div className="container hero-inner">
           <div className="hero-text">
             <h1 id="hero-title">Ma Maison Connectée</h1>
@@ -502,6 +503,62 @@ function FilterSelect({ label, value, onChange, options }) {
         {options.map(option => <option key={option} value={option}>{option}</option>)}
       </select>
     </label>
+  );
+}
+
+function PlantDecorations() {
+  return (
+    <div className="hero-nature" aria-hidden="true">
+      {/* Grande plante droite principale */}
+      <svg className="nature-plant nature-plant--right" viewBox="0 0 240 340" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M120 340 C120 330 118 270 118 190" stroke="#065f46" strokeWidth="6" strokeLinecap="round"/>
+        {/* Feuille haute-gauche */}
+        <path d="M117 205 C88 178 55 155 22 135 C52 155 85 178 117 200 C65 158 44 120 49 95 C65 120 110 168 117 200Z" fill="#0d9488"/>
+        {/* Feuille haute-droite */}
+        <path d="M123 212 C155 183 186 150 208 115 C180 148 152 181 123 207 C172 155 190 108 183 80 C162 110 126 196 123 207Z" fill="#14b8a6"/>
+        {/* Feuille milieu-gauche */}
+        <path d="M116 255 C85 238 57 216 34 194 C58 212 87 234 116 251 C65 220 46 188 51 166 C68 186 110 240 116 251Z" fill="#0f766e"/>
+        {/* Feuille milieu-droite */}
+        <path d="M124 268 C155 249 180 224 195 198 C173 222 149 246 124 264 C170 230 185 194 177 173 C158 196 127 256 124 264Z" fill="#2dd4bf"/>
+        {/* Petite feuille sommet */}
+        <path d="M119 188 C103 160 95 126 100 102 C108 126 118 162 119 185 C113 128 121 92 129 82 C125 108 120 165 119 185Z" fill="#047857"/>
+        {/* Feuille basse */}
+        <path d="M116 295 C88 280 62 260 44 240 C65 258 90 276 116 291 C70 263 54 234 58 216 C74 234 110 282 116 291Z" fill="#34d399" opacity="0.9"/>
+      </svg>
+
+      {/* Seconde plante droite, légèrement en retrait */}
+      <svg className="nature-plant nature-plant--right2" viewBox="0 0 180 260" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M90 260 C90 252 88 200 88 150" stroke="#065f46" strokeWidth="5" strokeLinecap="round"/>
+        <path d="M87 163 C62 140 38 122 15 108 C38 122 63 140 87 160 C44 124 26 94 30 74 C44 94 83 148 87 160Z" fill="#34d399"/>
+        <path d="M93 170 C120 146 145 118 162 90 C139 116 116 144 93 166 C134 120 148 82 140 60 C124 88 96 158 93 166Z" fill="#6ee7b7"/>
+        <path d="M88 208 C64 195 42 178 26 160 C44 175 67 192 88 205 C48 179 33 152 37 136 C52 152 84 198 88 205Z" fill="#10b981"/>
+      </svg>
+
+      {/* Petite plante gauche */}
+      <svg className="nature-plant nature-plant--left" viewBox="0 0 160 230" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M80 230 C80 222 78 170 78 125" stroke="#065f46" strokeWidth="5" strokeLinecap="round"/>
+        <path d="M77 138 C54 116 30 100 8 86 C30 100 56 118 77 134 C34 98 17 68 21 50 C35 68 72 122 77 134Z" fill="#0d9488"/>
+        <path d="M83 145 C108 122 130 96 145 68 C124 94 103 120 83 141 C120 98 132 60 125 38 C109 60 86 133 83 141Z" fill="#14b8a6"/>
+        <path d="M79 178 C55 165 32 148 16 132 C34 146 57 162 79 174 C38 150 22 122 26 107 C42 122 74 168 79 174Z" fill="#2dd4bf"/>
+        <path d="M78 200 C58 190 40 175 25 160 C42 173 60 187 78 197 C40 175 26 150 30 136 C44 150 74 192 78 197Z" fill="#34d399" opacity="0.8"/>
+      </svg>
+
+      {/* Feuilles flottantes */}
+      <svg className="nature-leaf nature-leaf--1" viewBox="0 0 52 82" fill="none">
+        <path d="M26 78 C26 78 3 54 4 28 C13 43 21 62 26 76 C14 46 19 16 26 8 C24 32 26 64 26 76Z" fill="#10b981" opacity="0.8"/>
+        <line x1="26" y1="10" x2="26" y2="76" stroke="#047857" strokeWidth="1.2" opacity="0.5"/>
+      </svg>
+      <svg className="nature-leaf nature-leaf--2" viewBox="0 0 44 68" fill="none">
+        <path d="M22 64 C22 64 2 44 3 22 C10 34 18 52 22 62 C11 36 15 12 22 6 C20 26 22 55 22 62Z" fill="#34d399" opacity="0.75"/>
+        <line x1="22" y1="8" x2="22" y2="62" stroke="#059669" strokeWidth="1" opacity="0.45"/>
+      </svg>
+      <svg className="nature-leaf nature-leaf--3" viewBox="0 0 48 76" fill="none">
+        <path d="M24 72 C24 72 4 50 4 26 C12 40 20 58 24 70 C12 43 16 16 24 8 C22 30 24 62 24 70Z" fill="#0d9488" opacity="0.65"/>
+      </svg>
+      <svg className="nature-leaf nature-leaf--4" viewBox="0 0 38 60" fill="none">
+        <path d="M19 56 C19 56 2 38 3 19 C9 29 15 44 19 54 C9 30 13 10 19 5 C17 22 19 48 19 54Z" fill="#6ee7b7" opacity="0.7"/>
+      </svg>
+    </div>
   );
 }
 

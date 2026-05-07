@@ -25,7 +25,7 @@ const DEFAULT_SETTINGS = {
   registrationAuto: false,
   pointsConnexion: 0.25,
   pointsConsultation: 0.5,
-  themeColor: '#1a73e8',
+  themeColor: '#0d9488',
   maintenanceMode: false,
 };
 

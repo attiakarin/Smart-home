@@ -55,7 +55,7 @@
   transition: background var(--transition), color var(--transition);
 }
 .nav-link:hover { background: var(--color-bg); color: var(--color-text); }
-.nav-link.active { background: #dbeafe; color: var(--color-primary); font-weight: 600; }
+.nav-link.active { background: #ccfbf1; color: var(--color-primary); font-weight: 600; }
 
 .nav-notification,
 .user-notification {
@@ -160,7 +160,7 @@
 .dropdown-item--danger { color: var(--color-danger); }
 .dropdown-item--danger:hover { background: #fee2e2; }
 .dropdown-item--notice { color: var(--color-primary); font-weight: 700; }
-.dropdown-item--notice:hover { background: #dbeafe; }
+.dropdown-item--notice:hover { background: #ccfbf1; }
 
 /* Burger */
 .navbar-burger {
