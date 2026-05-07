@@ -455,7 +455,7 @@ export default function ServicesPage() {
                 <span aria-hidden="true" style={{ fontSize: '1.2rem' }}>{cfg?.icon ?? '⚙️'}</span>
                 <span className="badge badge-gray">{service.service_type || 'Service'}</span>
                 <span className="badge badge-primary" style={{ marginLeft: 'auto' }}>
-                  {service.min_niveau}
+                  {service.service_type === 'confort' ? 'Avancé' : service.min_niveau}
                 </span>
               </div>
               <h2 style={{ fontSize: '1rem', fontWeight: 800, marginBottom: '.35rem' }}>
