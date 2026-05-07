@@ -55,9 +55,9 @@ export default function ReportsPage() {
     devices.reduce((acc, d) => { acc[d.type] = (acc[d.type] || 0) + 1; return acc; }, {})
   ).map(([name, value]) => ({ name, value }));
 
-  // Consommation énergétique par objet
+  // Consommation énergétique par objet (uniquement les objets actifs)
   const energyData = devices
-    .filter(d => d.energyConsumption > 0)
+    .filter(d => d.status === 'active' && d.energyConsumption > 0)
     .map(d => ({ name: d.name.slice(0, 12), conso: d.energyConsumption }))
     .sort((a, b) => b.conso - a.conso)
     .slice(0, 8);
@@ -96,7 +96,7 @@ export default function ReportsPage() {
         <div className="card text-center"><strong style={{ fontSize: '1.5rem', color: '#1a73e8' }}>{devices.length}</strong><p style={{ color: 'var(--color-text-muted)' }}>Objets</p></div>
         <div className="card text-center"><strong style={{ fontSize: '1.5rem', color: '#22c55e' }}>{active}</strong><p style={{ color: 'var(--color-text-muted)' }}>Actifs</p></div>
         <div className="card text-center"><strong style={{ fontSize: '1.5rem', color: '#ef4444' }}>{inactive}</strong><p style={{ color: 'var(--color-text-muted)' }}>Inactifs</p></div>
-        <div className="card text-center"><strong style={{ fontSize: '1.5rem', color: '#f59e0b' }}>{energyData.reduce((sum, item) => sum + item.conso, 0).toFixed(1)} kWh</strong><p style={{ color: 'var(--color-text-muted)' }}>Consommation</p></div>
+        <div className="card text-center"><strong style={{ fontSize: '1.5rem', color: '#f59e0b' }}>{devices.filter(d => d.status === 'active').reduce((sum, d) => sum + (d.energyConsumption > 0 ? d.energyConsumption : 0), 0).toFixed(1)} kWh</strong><p style={{ color: 'var(--color-text-muted)' }}>Consommation</p></div>
       </div>
 
       <div className="grid grid-2" style={{ gap: '1.5rem' }}>
@@ -117,13 +117,13 @@ export default function ReportsPage() {
         {/* Répartition par type */}
         <div className="card">
           <h2 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '1rem' }}>Objets par type</h2>
-          <ResponsiveContainer width="100%" height={220}>
+          <ResponsiveContainer width="100%" height={280}>
             <PieChart aria-label="Répartition des objets par type">
-              <Pie data={byType} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={80} label={({name, percent}) => `${name} ${(percent*100).toFixed(0)}%`} labelLine={false}>
+              <Pie data={byType} dataKey="value" nameKey="name" cx="50%" cy="45%" outerRadius={90}>
                 {byType.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
               </Pie>
-              <Tooltip formatter={(v, n) => [v, n]} />
-              <Legend />
+              <Tooltip formatter={(v, n) => [`${v} objet${v > 1 ? 's' : ''}`, n]} />
+              <Legend verticalAlign="bottom" height={36} />
             </PieChart>
           </ResponsiveContainer>
         </div>

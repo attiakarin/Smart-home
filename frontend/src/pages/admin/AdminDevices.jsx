@@ -39,7 +39,7 @@ export default function AdminDevices() {
 
   const filters = [
     'Tous',
-    'En defaut',
+    'En défaut',
     'Actifs',
     'Inactifs',
     'Batterie faible',
@@ -49,7 +49,7 @@ export default function AdminDevices() {
 
   const filtered = diagnostics.filter(({ device, issues }) => {
     if (filter === 'Tous') return true;
-    if (filter === 'En defaut') return issues.length > 0;
+    if (filter === 'En défaut') return issues.length > 0;
     if (filter === 'Actifs') return device.status === 'active';
     if (filter === 'Inactifs') return device.status === 'inactive';
     if (filter === 'Batterie faible') return issues.some(issue => issue.key === 'battery');
@@ -79,7 +79,7 @@ export default function AdminDevices() {
 
     try {
       await updateDevice(device.id, payload);
-      setNotice(`${device.name} corrige.`);
+      setNotice(`${device.name} corrigé.`);
       setTimeout(() => setNotice(''), 2500);
     } finally {
       setRepairingId(null);
@@ -92,9 +92,9 @@ export default function AdminDevices() {
 
       <div className="admin-devices-header">
         <div>
-          <h1>{isMaintenance ? 'Panneau de maintenance' : 'Gestion des Objets Connectes'}</h1>
+          <h1>{isMaintenance ? 'Panneau de maintenance' : 'Gestion des Objets Connectés'}</h1>
           {isMaintenance && (
-            <p>Controlez les objets, reperez les defauts et corrigez rapidement avant de rouvrir la maison.</p>
+            <p>Contrôlez les objets, repérez les défauts et corrigez rapidement avant de rouvrir la maison.</p>
           )}
         </div>
         <button className="btn btn-primary btn-sm" onClick={() => setShowAdd(true)}><Plus size={15} /> Ajouter</button>
@@ -108,11 +108,11 @@ export default function AdminDevices() {
                 <span className="badge badge-warning"><Wrench size={13} /> Intervention admin</span>
                 <h2>Diagnostic de la maison</h2>
               </div>
-              <span className="maintenance-panel__count">{issueCount} defaut(s)</span>
+              <span className="maintenance-panel__count">{issueCount} défaut(s)</span>
             </div>
 
             <div className="grid grid-4">
-              <MaintenanceStat icon={<AlertTriangle size={20} />} label="Objets a verifier" value={faultyDevices.length} />
+              <MaintenanceStat icon={<AlertTriangle size={20} />} label="Objets à vérifier" value={faultyDevices.length} />
               <MaintenanceStat icon={<BatteryWarning size={20} />} label="Batteries faibles" value={lowBattery} />
               <MaintenanceStat icon={<Radio size={20} />} label="Signaux faibles" value={weakSignal} />
               <MaintenanceStat icon={<Zap size={20} />} label="Objets inactifs" value={inactive} />
@@ -138,14 +138,14 @@ export default function AdminDevices() {
       <p className="text-sm mb-3" style={{ color: 'var(--color-text-muted)' }}>{filtered.length} objet(s)</p>
 
       <div className="table-wrapper card" style={{ padding: 0 }}>
-        <table className="table" aria-label="Gestion des objets connectes" role="table">
+        <table className="table" aria-label="Gestion des objets connectés" role="table">
           <thead>
             <tr>
               <th scope="col">Nom</th>
               <th scope="col">Type</th>
               <th scope="col">Marque</th>
-              <th scope="col">Piece</th>
-              <th scope="col">Etat</th>
+              <th scope="col">Pièce</th>
+              <th scope="col">État</th>
               {isMaintenance && <th scope="col">Diagnostic</th>}
               <th scope="col">Conso.</th>
               <th scope="col">Actions</th>
@@ -189,15 +189,15 @@ export default function AdminDevices() {
                         disabled={repairingId === device.id}
                         aria-label={`Corriger ${device.name}`}
                       >
-                        <Wrench size={12} /> {repairingId === device.id ? 'Correction...' : 'Corriger'}
+                        <Wrench size={12} /> {repairingId === device.id ? 'Correction…' : 'Corriger'}
                       </button>
                     )}
                     <button
                       className="btn btn-ghost btn-sm"
                       onClick={() => toggleDevice(device.id)}
-                      aria-label={device.status === 'active' ? `Desactiver ${device.name}` : `Activer ${device.name}`}
+                      aria-label={device.status === 'active' ? `Désactiver ${device.name}` : `Activer ${device.name}`}
                     >
-                      {device.status === 'active' ? 'Desactiver' : 'Activer'}
+                      {device.status === 'active' ? 'Désactiver' : 'Activer'}
                     </button>
                     <button className="btn btn-danger btn-sm" onClick={() => setDeletePending(device)} aria-label={`Supprimer ${device.name}`}>
                       <Trash2 size={12} />
@@ -216,7 +216,7 @@ export default function AdminDevices() {
         <div className="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="del-dev-title">
           <div className="modal">
             <div className="modal-header"><h2 id="del-dev-title" style={{ fontSize: '1rem' }}>Supprimer {deletePending.name} ?</h2></div>
-            <div className="modal-body"><p>Cette action est irreversible.</p></div>
+            <div className="modal-body"><p>Cette action est irréversible.</p></div>
             <div className="modal-footer">
               <button className="btn btn-ghost" onClick={() => setDeletePending(null)}>Annuler</button>
               <button className="btn btn-danger" onClick={() => { deleteDevice(deletePending.id); setDeletePending(null); }}>Supprimer</button>
@@ -258,7 +258,7 @@ function getDeviceIssues(device) {
     issues.push({ key: 'energy', label: 'Surconsommation', severity: 'warning' });
   }
   if (!device.room) {
-    issues.push({ key: 'room', label: 'Piece manquante', severity: 'warning' });
+    issues.push({ key: 'room', label: 'Pi\u00e8ce manquante', severity: 'warning' });
   }
   if (lastSeen && Date.now() - new Date(lastSeen).getTime() > 1000 * 60 * 60 * 24 * 30) {
     issues.push({ key: 'stale', label: 'Connexion ancienne', severity: 'warning' });

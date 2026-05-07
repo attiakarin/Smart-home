@@ -177,6 +177,41 @@ export const devicesAPI = {
   },
 };
 
+// ─── AUTOMATISATION ──────────────────────────────────────────────────────
+
+export const automationAPI = {
+  /**
+   * Crée une règle d'automatisation pour un objet.
+   * @param {number|string} deviceId
+   * @param {{ heure: string, action_auto: string, jours: string[] }} rule
+   */
+  createRule: async (deviceId, rule) => {
+    const response = await fetch(`${API_BASE_URL}/devices/${deviceId}/automation-rules`, {
+      method: 'POST',
+      headers: getHeaders(true),
+      body: JSON.stringify(rule),
+    });
+    return handleResponse(response);
+  },
+
+  /** Récupère les règles actives d'un objet. */
+  getRules: async (deviceId) => {
+    const response = await fetch(`${API_BASE_URL}/devices/${deviceId}/automation-rules`, {
+      headers: getHeaders(true),
+    });
+    return handleResponse(response);
+  },
+
+  /** Désactive (soft-delete) une règle. */
+  deleteRule: async (deviceId, ruleId) => {
+    const response = await fetch(`${API_BASE_URL}/devices/${deviceId}/automation-rules/${ruleId}`, {
+      method: 'DELETE',
+      headers: getHeaders(true),
+    });
+    return handleResponse(response);
+  },
+};
+
 // ─── UTILISATEURS ───────────────────────────────────────────────────────
 
 export const usersAPI = {
@@ -312,6 +347,38 @@ export const requestsAPI = {
       method: 'POST',
       headers: getHeaders(true),
       body: JSON.stringify({ message }),
+    });
+    return handleResponse(response);
+  },
+};
+
+export const houseAPI = {
+  getConfig: async () => {
+    const response = await fetch(`${API_BASE_URL}/house/config`, {
+      headers: getHeaders(true),
+    });
+    return handleResponse(response);
+  },
+
+  updateConfig: async (config) => {
+    const response = await fetch(`${API_BASE_URL}/house/config`, {
+      method: 'PUT',
+      headers: getHeaders(true),
+      body: JSON.stringify(config),
+    });
+    return handleResponse(response);
+  },
+
+  getConsumption: async () => {
+    const response = await fetch(`${API_BASE_URL}/house/consumption`, {
+      headers: getHeaders(true),
+    });
+    return handleResponse(response);
+  },
+
+  getConsumptionHistory: async () => {
+    const response = await fetch(`${API_BASE_URL}/house/consumption/history`, {
+      headers: getHeaders(true),
     });
     return handleResponse(response);
   },

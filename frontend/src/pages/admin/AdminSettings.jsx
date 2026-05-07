@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { AlertTriangle, ArrowLeft, Cpu, Download, Save, Settings, Trash2, Users, Wrench } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Cpu, Download, Home, Save, Settings, Trash2, Users, Wrench } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { houseAPI } from '../../services/api';
 import { LEVELS as LEVEL_DEFS } from '../../constants/smartHome';
 
 function previewThemeColor(color) {
@@ -25,14 +26,38 @@ export default function AdminSettings() {
   } = useAuth();
 
   const [saved, setSaved] = useState(false);
+  const [houseSaved, setHouseSaved] = useState(false);
   const [error, setError] = useState('');
+  const [houseError, setHouseError] = useState('');
   const [config, setConfig] = useState(settings);
+  const [houseConfig, setHouseConfig] = useState({
+    housingType: 'maison',
+    nbPieces: 4,
+    budgetKwh: 0,
+    pieces: [],
+  });
   const [deleteForm, setDeleteForm] = useState({ password: '', confirmation: '' });
   const [deleting, setDeleting] = useState(false);
+  const [loadingHouseConfig, setLoadingHouseConfig] = useState(true);
 
   useEffect(() => {
     setConfig(settings);
   }, [settings]);
+
+  useEffect(() => {
+    const loadHouseConfig = async () => {
+      setLoadingHouseConfig(true);
+      try {
+        const config = await houseAPI.getConfig();
+        setHouseConfig(config);
+      } catch (err) {
+        console.error('Erreur chargement config maison:', err);
+      } finally {
+        setLoadingHouseConfig(false);
+      }
+    };
+    loadHouseConfig();
+  }, []);
 
   const handleChange = e => {
     const { name, value, type, checked } = e.target;
@@ -41,6 +66,27 @@ export default function AdminSettings() {
       ...c,
       [name]: type === 'checkbox' ? checked : value,
     }));
+  };
+
+  const handleHouseConfigChange = e => {
+    const { name, value } = e.target;
+    setHouseConfig(c => ({
+      ...c,
+      [name]: name === 'nbPieces' ? Math.max(1, Number(value) || 1) : (name === 'budgetKwh' ? Number(value) || 0 : value),
+    }));
+  };
+
+  const handleSaveHouseConfig = async (e) => {
+    e.preventDefault();
+    setHouseError('');
+    try {
+      const updated = await houseAPI.updateConfig(houseConfig);
+      setHouseConfig(updated);
+      setHouseSaved(true);
+      setTimeout(() => setHouseSaved(false), 2500);
+    } catch (err) {
+      setHouseError(err.message || 'Impossible de sauvegarder la configuration.');
+    }
   };
 
   const handleSave = async (e) => {
@@ -164,7 +210,41 @@ export default function AdminSettings() {
           <button type="submit" className="btn btn-primary"><Save size={15} /> Sauvegarder</button>
         </form>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <form onSubmit={handleSaveHouseConfig} className="card">
+          <h2 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '.5rem' }}>
+            <Home size={18} aria-hidden="true" /> Configuration de la maison
+          </h2>
+
+          {houseSaved && <div className="alert alert-success mb-3" role="status">Configuration maison sauvegardée.</div>}
+          {houseError && <div className="alert alert-error mb-3" role="alert">{houseError}</div>}
+
+          {!loadingHouseConfig ? (
+            <>
+              <div className="form-group mb-3">
+                <label className="form-label" htmlFor="house-type">Type de logement</label>
+                <select id="house-type" name="housingType" className="form-input" value={houseConfig.housingType} onChange={handleHouseConfigChange}>
+                  <option value="maison">Maison</option>
+                  <option value="appartement">Appartement</option>
+                </select>
+              </div>
+
+              <div className="form-group mb-3">
+                <label className="form-label" htmlFor="house-nbpieces">Nombre de pièces</label>
+                <input id="house-nbpieces" name="nbPieces" type="number" min="1" max="30" className="form-input" value={houseConfig.nbPieces || 4} onChange={handleHouseConfigChange} />
+              </div>
+
+              <div className="form-group mb-3">
+                <label className="form-label" htmlFor="house-budget">Budget énergétique mensuel (kWh)</label>
+                <input id="house-budget" name="budgetKwh" type="number" min="0" step="0.1" className="form-input" value={houseConfig.budgetKwh || 0} onChange={handleHouseConfigChange} />
+                <span className="form-hint">Laissez 0 pour désactiver les alertes de consommation.</span>
+              </div>
+
+              <button type="submit" className="btn btn-primary"><Save size={15} /> Sauvegarder</button>
+            </>
+          ) : (
+            <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--color-text-muted)' }}>Chargement…</div>
+          )}
+        </form>
           {config.maintenanceMode && (
             <div className="card" style={{ borderColor: '#f97316', background: '#fff7ed' }}>
               <h2 style={{ fontSize: '1rem', fontWeight: 800, marginBottom: '.75rem', color: '#9a3412' }}>
@@ -247,6 +327,5 @@ export default function AdminSettings() {
           </form>
         </div>
       </div>
-    </div>
   );
 }

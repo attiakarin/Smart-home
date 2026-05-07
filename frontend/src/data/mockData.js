@@ -214,7 +214,7 @@ export const USERS = [
     dateNaissance: '1984-03-15',
     role: 'père',
     niveau: 'expert',
-    points: 42.5,
+    points: 75,
     photo: null,
     status: 'approved',
     connexions: 120,
@@ -234,7 +234,7 @@ export const USERS = [
     dateNaissance: '1982-07-22',
     role: 'père',
     niveau: 'avancé',
-    points: 18.75,
+    points: 50,
     photo: null,
     status: 'approved',
     connexions: 75,
@@ -254,7 +254,7 @@ export const USERS = [
     dateNaissance: '2010-01-10',
     role: 'enfant',
     niveau: 'intermédiaire',
-    points: 8.5,
+    points: 25,
     photo: null,
     status: 'approved',
     connexions: 34,
@@ -274,7 +274,7 @@ export const USERS = [
     dateNaissance: '2014-06-05',
     role: 'enfant',
     niveau: 'débutant',
-    points: 2.25,
+    points: 0,
     photo: null,
     status: 'approved',
     connexions: 9,
@@ -369,9 +369,9 @@ export const TRANSPORTS = [
 // Niveaux d'utilisateur
 export const LEVELS = {
   débutant:      { points: 0,    label: 'Débutant',      color: '#6b7280' },
-  intermédiaire: { points: 5,    label: 'Intermédiaire', color: '#3b82f6' },
-  avancé:        { points: 15,   label: 'Avancé',        color: '#8b5cf6' },
-  expert:        { points: 30,   label: 'Expert',        color: '#f59e0b' },
+  intermédiaire: { points: 25,   label: 'Intermédiaire', color: '#3b82f6' },
+  avancé:        { points: 50,   label: 'Avancé',        color: '#8b5cf6' },
+  expert:        { points: 75,   label: 'Expert',        color: '#f59e0b' },
 };
 
 export const POINTS_CONFIG = {

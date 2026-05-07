@@ -1,8 +1,10 @@
+import { useState, useMemo, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useDevices } from '../../context/DevicesContext';
 import { Link } from 'react-router-dom';
 import { Activity, BarChart2, Bell, Cpu, KeyRound, MessageSquare, Plus, Shield, TrendingUp, User, Wrench, Zap } from 'lucide-react';
 import { LEVELS } from '../../constants/smartHome';
+import { requestsAPI } from '../../services/api';
 
 const LEVEL_COLORS = Object.fromEntries(
   Object.entries(LEVELS).map(([level, config]) => [level.toLowerCase(), config.color])
@@ -16,23 +18,50 @@ const NEXT_LEVEL = {
 };
 
 export default function DashboardPage() {
-  const { currentUser, users, canAccess } = useAuth();
+  const { currentUser, users, canAccess, houseConsumption } = useAuth();
   const { devices } = useDevices();
+  const [signalMessage, setSignalMessage] = useState('');
 
   const isAdmin = currentUser.appRole === 'admin';
   const canUseGestion = canAccess('gestion');
   const canCreateDevices = canAccess('device_create');
   const canSeeReports = canAccess('reports');
   const levelKey = currentUser.niveau?.toLowerCase();
-  const pendingUsers = users.filter(user => user.status === 'pending');
-  const active = devices.filter(device => device.status === 'active').length;
-  const inactive = devices.filter(device => device.status === 'inactive').length;
-  const lowBattery = devices.filter(device => device.battery !== null && device.battery !== undefined && device.battery < 25).length;
-  const totalEnergy = devices.reduce((sum, device) => sum + (device.energyConsumption > 0 ? device.energyConsumption : 0), 0).toFixed(1);
+  const pendingUsers = useMemo(() => users.filter(user => user.status === 'pending'), [users]);
+
+  const deviceStats = useMemo(() => {
+    const active     = devices.filter(d => d.status === 'active').length;
+    const inactive   = devices.filter(d => d.status === 'inactive').length;
+    const lowBattery = devices.filter(d => d.battery !== null && d.battery !== undefined && d.battery < 25).length;
+    const totalEnergy = devices
+      .filter(d => d.status === 'active')
+      .reduce((sum, d) => sum + (d.energyConsumption > 0 ? d.energyConsumption : 0), 0)
+      .toFixed(1);
+    return { active, inactive, lowBattery, totalEnergy };
+  }, [devices]);
+  const { active, inactive, lowBattery, totalEnergy } = deviceStats;
 
   const next = NEXT_LEVEL[levelKey];
   const nextPts = next ? LEVELS[next].points : null;
   const progress = nextPts ? Math.min(100, (Number(currentUser.points || 0) / nextPts) * 100).toFixed(0) : 100;
+  const budget = Number(houseConsumption?.budgetKwh || 0);
+  const consumption = Number(houseConsumption?.consumptionKwh || 0);
+  const consumptionProgress = budget ? Math.min(100, (consumption / budget) * 100) : 0;
+
+  const signalDevice = useCallback(async (warning) => {
+    setSignalMessage('');
+    try {
+      await requestsAPI.create({
+        type: 'maintenance',
+        priority: 'haute',
+        title: `Prevention consommation - ${warning.deviceName}`,
+        message: `${warning.message}\nConsommation estimee: ${warning.consumptionKwh} kWh.\nPiece: ${warning.room || 'Non precisee'}.`,
+      });
+      setSignalMessage("Signalement envoyé à l'admin. Il pourra le valider et attribuer les points.");
+    } catch (err) {
+      setSignalMessage(err.message || "Impossible d'envoyer le signalement.");
+    }
+  }, []);
 
   return (
     <div className="container section animate-fade">
@@ -113,6 +142,16 @@ export default function DashboardPage() {
         <StatCard icon={<Zap size={22} />} value={isAdmin ? lowBattery : `${totalEnergy} kWh`} label={isAdmin ? 'Batteries faibles' : 'Consommation'} color="#fef3c7" iconColor="#f59e0b" />
       </div>
 
+      <ConsumptionPanel
+        consumption={houseConsumption}
+        budget={budget}
+        currentConsumption={consumption}
+        progress={consumptionProgress}
+        isAdmin={isAdmin}
+        signalMessage={signalMessage}
+        onSignal={signalDevice}
+      />
+
       <h2 className="section-title" style={{ fontSize: '1.2rem' }}>Accès rapides</h2>
       <div className="grid grid-3 mb-4">
         <QuickLink to="/objets" icon={<Cpu size={20} />} title={isAdmin ? 'Parc objets' : 'Mes objets'} desc="Consulter les objets connectés" />
@@ -146,6 +185,46 @@ export default function DashboardPage() {
           </Link>
         ))}
       </div>
+    </div>
+  );
+}
+
+function ConsumptionPanel({ consumption, budget, currentConsumption, progress, isAdmin, signalMessage, onSignal }) {
+  if (!consumption) return null;
+
+  return (
+    <div className="card mb-4">
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap', marginBottom: '.75rem' }}>
+        <div>
+          <h2 style={{ fontSize: '1.1rem', fontWeight: 800 }}>Suivi consommation mensuelle</h2>
+          <p style={{ color: 'var(--color-text-muted)' }}>
+            {currentConsumption.toFixed(1)} kWh consommés {budget ? `sur ${budget.toFixed(1)} kWh` : ''}
+          </p>
+        </div>
+        {consumption.exceeded && <span className="badge badge-danger">Seuil dépassé - maintenance activée</span>}
+      </div>
+      {budget > 0 && (
+        <div className="level-progress" aria-label={`Consommation : ${progress.toFixed(0)}%`}>
+          <div className="level-progress__bar" style={{ width: `${progress}%`, background: consumption.exceeded ? '#ef4444' : '#22c55e' }} />
+        </div>
+      )}
+      {signalMessage && <div className="alert alert-success mt-3" role="status">{signalMessage}</div>}
+      {consumption.warnings?.length > 0 && (
+        <div className="grid grid-3 mt-3">
+          {consumption.warnings.map(warning => (
+            <div key={warning.deviceId} className="card" style={{ padding: '1rem', background: '#fffbeb' }}>
+              <strong>{warning.deviceName}</strong>
+              <p style={{ fontSize: '.84rem', color: 'var(--color-text-muted)', margin: '.35rem 0' }}>{warning.message}</p>
+              <span className="badge badge-warning">{warning.consumptionKwh.toFixed(1)} kWh</span>
+              {!isAdmin && (
+                <button className="btn btn-outline btn-sm mt-2" onClick={() => onSignal(warning)}>
+                  <MessageSquare size={14} /> Signaler
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

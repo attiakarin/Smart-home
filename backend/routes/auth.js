@@ -1,4 +1,3 @@
-// Contribution Djedjiga : Amélioration des routes d'authentification
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
@@ -12,9 +11,9 @@ const router = Router();
 
 const LEVELS = {
   'Débutant': 0,
-  'Intermédiaire': 5,
-  'Avancé': 15,
-  Expert: 30,
+  'Intermédiaire': 25,
+  'Avancé': 50,
+  Expert: 75,
 };
 
 function generateHouseCode() {
@@ -74,6 +73,17 @@ function toDbGenre(value) {
   if (normalized === 'f' || normalized === 'femme') return 'F';
   if (normalized === 'h' || normalized === 'homme') return 'H';
   return '-';
+}
+
+function normalizeHousePieces(body) {
+  const defaults = ['Salon', 'Chambre', 'Cuisine', 'Salle de bain', 'Entree', 'Garage', 'Couloir'];
+  const nbPieces = Math.max(1, Number(body.nbPieces || 1));
+  const pieces = Array.isArray(body.pieces)
+    ? body.pieces.map(piece => String(piece || '').trim()).filter(Boolean).slice(0, 30)
+    : [];
+  return pieces.length > 0
+    ? pieces
+    : Array.from({ length: nbPieces }, (_, index) => defaults[index] || `Piece ${index + 1}`);
 }
 
 router.post('/login',
@@ -259,6 +269,10 @@ router.post('/create-house',
     if (!errors.isEmpty()) return res.status(400).json({ error: 'Informations invalides.' });
 
     const { houseName, login, password, email, nom, prenom, sexe } = req.body;
+    const housingType = req.body.housingType === 'appartement' ? 'appartement' : 'maison';
+    const nbPieces = Math.max(1, Number(req.body.nbPieces || 1));
+    const budgetKwh = Math.max(0, Number(req.body.budgetKwh || 0));
+    const pieces = normalizeHousePieces({ ...req.body, nbPieces });
     const dateNaissance = normalizeDateOnly(req.body.dateNaissance ?? req.body.date_naissance);
     const age = calculateAge(dateNaissance);
     if (isFutureDate(dateNaissance)) {
@@ -299,13 +313,28 @@ router.post('/create-house',
       );
 
       const houseId = houseResult.rows[0].id;
+      await client.query(
+        `CREATE TABLE IF NOT EXISTS maison_config (
+          maison_id INT PRIMARY KEY REFERENCES maisons(id) ON DELETE CASCADE,
+          logement_type VARCHAR(20) NOT NULL DEFAULT 'maison',
+          nb_pieces INT NOT NULL DEFAULT 1,
+          budget_kwh NUMERIC(10,2) NOT NULL DEFAULT 0,
+          pieces JSONB NOT NULL DEFAULT '[]'::jsonb,
+          updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+        )`
+      );
+      await client.query(
+        `INSERT INTO maison_config (maison_id, logement_type, nb_pieces, budget_kwh, pieces)
+         VALUES ($1, $2, $3, $4, $5::jsonb)`,
+        [houseId, housingType, nbPieces, budgetKwh, JSON.stringify(pieces)]
+      );
       const passwordHash = await bcrypt.hash(password, 12);
       const userResult = await client.query(
         `INSERT INTO users (
           pseudonyme, mot_de_passe, email, nom, prenom, age, genre, date_naissance,
           rolee, role_maison, maison_id, niveau, points, statut, connexions, actions
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'admin', $9, $10, 'Expert', 30, 'Approuvé', 0, 0)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'admin', $9, $10, 'Expert', 75, 'Approuvé', 0, 0)
         RETURNING id`,
         [login, passwordHash, email, nom, prenom, age, toDbGenre(sexe), dateNaissance, 'admin', houseId]
       );
@@ -432,7 +461,7 @@ router.delete('/me', authenticate, async (req, res) => {
 
 router.post('/log-action', authenticate, async (req, res) => {
   try {
-    const settings = await getAppSettings();
+    const settings = await getAppSettings(req.user.maisonId);
     const { rows } = await pool.query('SELECT points, actions FROM users WHERE id = $1', [req.user.id]);
     if (!rows[0]) return res.status(404).json({ error: 'Utilisateur introuvable.' });
 

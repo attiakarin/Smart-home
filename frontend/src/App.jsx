@@ -1,4 +1,3 @@
-// Contribution Djedjiga : Amélioration de l'interface frontend
 import { BrowserRouter, Routes, Route, Navigate, Link } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { DevicesProvider } from './context/DevicesContext';
@@ -36,6 +35,7 @@ import AdminDashboard from './pages/admin/AdminDashboard';
 import AdminUsers from './pages/admin/AdminUsers';
 import AdminDevices from './pages/admin/AdminDevices';
 import AdminSettings from './pages/admin/AdminSettings';
+import AdminConsumption from './pages/admin/AdminConsumption';
 
 function ProtectedRoute({ children, module }) {
   const { currentUser, canAccess } = useAuth();
@@ -107,6 +107,9 @@ function AppRoutes() {
           <Route path="/admin/objets" element={
             <ProtectedRoute module="administration"><AdminDevices /></ProtectedRoute>
           } />
+          <Route path="/admin/consommation" element={
+            <ProtectedRoute module="administration"><AdminConsumption /></ProtectedRoute>
+          } />
           <Route path="/admin/parametres" element={
             <ProtectedRoute module="administration"><AdminSettings /></ProtectedRoute>
           } />
@@ -132,6 +135,7 @@ function MaintenanceBanner() {
         </div>
         <div className="maintenance-banner__actions">
           <NavigateLink to="/admin/objets" icon={<Cpu size={14} />} label="Maintenance" />
+          <NavigateLink to="/admin/consommation" icon={<AlertTriangle size={14} />} label="Consommation" />
           <NavigateLink to="/gestion" icon={<Wrench size={14} />} label="Gestion" />
           <NavigateLink to="/admin/utilisateurs" icon={<Users size={14} />} label="Utilisateurs" />
           <NavigateLink to="/admin/parametres" icon={<Settings size={14} />} label="Paramètres" />
@@ -149,7 +153,7 @@ export default function App() {
   return (
     <AuthProvider>
       <DevicesProvider>
-        <BrowserRouter>
+        <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           <AppRoutes />
         </BrowserRouter>
       </DevicesProvider>

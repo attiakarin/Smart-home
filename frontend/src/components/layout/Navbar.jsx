@@ -26,9 +26,11 @@ export default function Navbar() {
   const pendingRequests = canAccess('administration')
     ? users.filter(user => user.status === 'pending').length
     : 0;
-  const totalAdminNotifications = pendingRequests + pendingAdminRequests;
+  // "Admin" badge = uniquement les demandes d'accès (les messages sont déjà sur "Demandes")
+  const totalAdminNotifications = pendingRequests;
   const messageNotifications = canAccess('administration') ? pendingAdminRequests : unreadResidentReplies;
-  const totalNotifications = totalAdminNotifications + (!canAccess('administration') ? unreadResidentReplies : 0);
+  // Avatar = vrai total sans double comptage (pendingRequests + messages)
+  const totalNotifications = pendingRequests + pendingAdminRequests + (!canAccess('administration') ? unreadResidentReplies : 0);
 
   return (
     <header className="navbar" role="banner">
@@ -47,10 +49,7 @@ export default function Navbar() {
             <>
               <li><NavLink to="/catalogue-maison" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>Catalogue</NavLink></li>
               <li><NavLink to="/energie" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>Energie</NavLink></li>
-              <li><NavLink to="/securite" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>Securite</NavLink></li>
-              <li><NavLink to="/login" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>Connexion</NavLink></li>
-              <li><NavLink to="/creer-maison" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>Créer ma maison</NavLink></li>
-              <li><NavLink to="/inscription" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>Inscription</NavLink></li>
+              <li><NavLink to="/securite" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>Sécurité</NavLink></li>
             </>
           )}
 
@@ -62,9 +61,11 @@ export default function Navbar() {
               <li><NavLink to="/objets" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>
                 <Cpu size={15} aria-hidden="true" /> Objets
               </NavLink></li>
+              {canAccess('reports') && (
               <li><NavLink to="/services" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>
                 <Wrench size={15} aria-hidden="true" /> Services
               </NavLink></li>
+              )}
               <li><NavLink to="/demandes-admin" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>
                 <MessageSquare size={15} aria-hidden="true" /> Demandes
                 {messageNotifications > 0 && <span className="nav-notification">{messageNotifications}</span>}
@@ -83,6 +84,15 @@ export default function Navbar() {
             </>
           )}
         </ul>
+
+        {/* Right nav links (for visitors) */}
+        {!currentUser && (
+          <ul className="navbar-links-right" role="list">
+            <li><NavLink to="/login" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>Connexion</NavLink></li>
+            <li><NavLink to="/creer-maison" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>Créer ma maison</NavLink></li>
+            <li><NavLink to="/inscription" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}>Rejoindre une maison</NavLink></li>
+          </ul>
+        )}
 
         {/* Auth zone */}
         <div className="navbar-auth">
@@ -169,7 +179,7 @@ export default function Navbar() {
             <>
               <NavLink to="/tableau-de-bord" onClick={() => setMenuOpen(false)} className="mob-link">Dashboard</NavLink>
               <NavLink to="/objets"          onClick={() => setMenuOpen(false)} className="mob-link">Objets connectés</NavLink>
-              <NavLink to="/services"        onClick={() => setMenuOpen(false)} className="mob-link">Services</NavLink>
+              {canAccess('reports') && <NavLink to="/services" onClick={() => setMenuOpen(false)} className="mob-link">Services</NavLink>}
               <NavLink to="/demandes-admin"  onClick={() => setMenuOpen(false)} className="mob-link">Demandes admin</NavLink>
               <NavLink to="/profil"          onClick={() => setMenuOpen(false)} className="mob-link">Mon profil</NavLink>
               {canAccess('gestion') && <NavLink to="/gestion" onClick={() => setMenuOpen(false)} className="mob-link">Gestion</NavLink>}
@@ -180,10 +190,10 @@ export default function Navbar() {
             <>
               <NavLink to="/catalogue-maison" onClick={() => setMenuOpen(false)} className="mob-link">Catalogue maison</NavLink>
               <NavLink to="/energie"          onClick={() => setMenuOpen(false)} className="mob-link">Energie</NavLink>
-              <NavLink to="/securite"         onClick={() => setMenuOpen(false)} className="mob-link">Securite</NavLink>
+              <NavLink to="/securite"         onClick={() => setMenuOpen(false)} className="mob-link">Sécurité</NavLink>
               <NavLink to="/login"       onClick={() => setMenuOpen(false)} className="mob-link">Connexion</NavLink>
               <NavLink to="/creer-maison" onClick={() => setMenuOpen(false)} className="mob-link">Créer ma maison</NavLink>
-              <NavLink to="/inscription" onClick={() => setMenuOpen(false)} className="mob-link">Inscription</NavLink>
+              <NavLink to="/inscription" onClick={() => setMenuOpen(false)} className="mob-link">Rejoindre une maison</NavLink>
             </>
           )}
         </div>

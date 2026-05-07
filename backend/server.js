@@ -1,4 +1,3 @@
-// Contribution Djedjiga : Amélioration du serveur backend
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
@@ -10,6 +9,7 @@ import devicesRoutes from './routes/devices.js';
 import publicRoutes  from './routes/public.js';
 import settingsRoutes from './routes/settings.js';
 import requestsRoutes from './routes/requests.js';
+import houseRoutes from './routes/house.js';
 
 dotenv.config();
 
@@ -30,12 +30,21 @@ app.use('/api/devices', devicesRoutes);
 app.use('/api/public',  publicRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/requests', requestsRoutes);
+app.use('/api/house', houseRoutes);
 
 // ─── Health check ─────────────────────────────────────────────────────────
 app.get('/api/health', (_req, res) => res.json({ status: 'ok', time: new Date() }));
 
 // ─── 404 handler ──────────────────────────────────────────────────────────
 app.use((_req, res) => res.status(404).json({ error: 'Route introuvable.' }));
+
+// ─── Global error handler ─────────────────────────────────────────────────
+// eslint-disable-next-line no-unused-vars
+app.use((err, _req, res, _next) => {
+  console.error('Erreur non gérée:', err);
+  const status = err.status || err.statusCode || 500;
+  res.status(status).json({ error: err.message || 'Erreur serveur.' });
+});
 
 // ─── Démarrage ────────────────────────────────────────────────────────────
 await testConnection();

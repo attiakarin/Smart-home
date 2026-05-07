@@ -14,6 +14,7 @@ export function mapDevice(device) {
   return {
     ...device,
     id: device.id,
+    userId: device.user_id,
     name: device.nom,
     type: device.type_obj,
     brand: device.marque || '',

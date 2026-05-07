@@ -11,6 +11,26 @@ export const DEFAULT_SETTINGS = {
 
 let initialized = false;
 
+// ─── Cache TTL (30s) pour éviter une requête DB à chaque appel API ───────────
+const CACHE_TTL_MS = 30_000;
+const settingsCache = new Map(); // key → { value, expiresAt }
+
+function getCached(key) {
+  const entry = settingsCache.get(key);
+  if (!entry) return null;
+  if (Date.now() > entry.expiresAt) { settingsCache.delete(key); return null; }
+  return entry.value;
+}
+
+function setCache(key, value) {
+  settingsCache.set(key, { value, expiresAt: Date.now() + CACHE_TTL_MS });
+}
+
+export function invalidateSettingsCache(maisonId = null) {
+  settingsCache.delete(getSettingsKey(maisonId));
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 function getSettingsKey(maisonId) {
   return maisonId ? `maison:${maisonId}` : 'platform';
 }
@@ -42,19 +62,27 @@ function normalizeSettings(settings = {}) {
 
 export async function getAppSettings(maisonId = null) {
   await ensureSettingsTable();
-  const { rows } = await pool.query('SELECT value FROM app_settings WHERE key = $1', [getSettingsKey(maisonId)]);
-  return normalizeSettings(rows[0]?.value || DEFAULT_SETTINGS);
+  const key = getSettingsKey(maisonId);
+  const cached = getCached(key);
+  if (cached) return cached;
+  const { rows } = await pool.query('SELECT value FROM app_settings WHERE key = $1', [key]);
+  const result = normalizeSettings(rows[0]?.value || DEFAULT_SETTINGS);
+  setCache(key, result);
+  return result;
 }
 
 export async function saveAppSettings(nextSettings, maisonId = null) {
   await ensureSettingsTable();
   const settings = normalizeSettings(nextSettings);
+  const key = getSettingsKey(maisonId);
   await pool.query(
     `INSERT INTO app_settings (key, value, updated_at)
      VALUES ($1, $2::jsonb, CURRENT_TIMESTAMP)
      ON CONFLICT (key)
      DO UPDATE SET value = EXCLUDED.value, updated_at = CURRENT_TIMESTAMP`,
-    [getSettingsKey(maisonId), JSON.stringify(settings)]
+    [key, JSON.stringify(settings)]
   );
+  // Invalide le cache après écriture
+  invalidateSettingsCache(maisonId);
   return settings;
 }

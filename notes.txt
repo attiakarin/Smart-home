@@ -1,3 +1,0 @@
-Notes de contribution :
-- Amélioration de l'interface utilisateur.
-- Ajout de tests pour les appareils.

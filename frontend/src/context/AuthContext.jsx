@@ -1,5 +1,5 @@
-import { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { authAPI, devicesAPI, requestsAPI, settingsAPI, usersAPI } from '../services/api';
+import { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
+import { authAPI, devicesAPI, houseAPI, requestsAPI, settingsAPI, usersAPI } from '../services/api';
 
 const AuthContext = createContext(null);
 
@@ -15,9 +15,9 @@ function normalizeUser(user) {
 
 const LEVELS = {
   'Débutant':      0,
-  'Intermédiaire': 5,
-  'Avancé':        15,
-  'Expert':        30,
+  'Intermédiaire': 25,
+  'Avancé':        50,
+  'Expert':        75,
 };
 
 const DEFAULT_SETTINGS = {
@@ -25,7 +25,7 @@ const DEFAULT_SETTINGS = {
   registrationAuto: false,
   pointsConnexion: 0.25,
   pointsConsultation: 0.5,
-  themeColor: '#1a73e8',
+  themeColor: '#0d9488',
   maintenanceMode: false,
 };
 
@@ -82,6 +82,8 @@ export function AuthProvider({ children }) {
     const saved = localStorage.getItem('sh_settings');
     return saved ? { ...DEFAULT_SETTINGS, ...JSON.parse(saved) } : DEFAULT_SETTINGS;
   });
+  const [houseConfig, setHouseConfig] = useState(null);
+  const [houseConsumption, setHouseConsumption] = useState(null);
 
   useEffect(() => {
     localStorage.setItem('sh_settings', JSON.stringify(settings));
@@ -142,6 +144,16 @@ export function AuthProvider({ children }) {
           return;
         }
         console.error('Erreur chargement appareils:', err);
+      }
+      try {
+        const [config, consumption] = await Promise.all([
+          houseAPI.getConfig(),
+          houseAPI.getConsumption(),
+        ]);
+        setHouseConfig(config);
+        setHouseConsumption(consumption);
+      } catch (err) {
+        console.error('Erreur chargement configuration maison:', err);
       }
       try {
         const isAdmin = currentUser.niveau === 'Expert' && currentUser.appRole === 'admin';
@@ -296,6 +308,28 @@ export function AuthProvider({ children }) {
     resetThemeColor();
   }, []);
 
+  const updateHouseConfig = useCallback(async (data) => {
+    const nextConfig = await houseAPI.updateConfig(data);
+    setHouseConfig(nextConfig);
+    const consumption = await houseAPI.getConsumption();
+    setHouseConsumption(consumption);
+    if (isAdminUser(currentUser)) {
+      const nextSettings = await settingsAPI.get();
+      setSettings({ ...DEFAULT_SETTINGS, ...nextSettings });
+    }
+    return nextConfig;
+  }, [currentUser]);
+
+  const refreshHouseConsumption = useCallback(async () => {
+    const consumption = await houseAPI.getConsumption();
+    setHouseConsumption(consumption);
+    if (isAdminUser(currentUser)) {
+      const nextSettings = await settingsAPI.get();
+      setSettings({ ...DEFAULT_SETTINGS, ...nextSettings });
+    }
+    return consumption;
+  }, [currentUser]);
+
   const refreshAdminRequests = useCallback(async () => {
     if (!isAdminUser(currentUser)) {
       setAdminRequests([]);
@@ -307,7 +341,10 @@ export function AuthProvider({ children }) {
   }, [currentUser]);
 
   const pendingAdminRequests = adminRequests.filter(request => request.status === 'nouvelle').length;
-  const unreadResidentReplies = residentRequests.filter(request => request.adminReply && !request.replyRead).length;
+  const CLOSED_STATUSES = ['en_cours', 'traitee', 'refusee'];
+  const unreadResidentReplies = residentRequests.filter(
+    request => request.adminReply && !request.replyRead && !CLOSED_STATUSES.includes(request.status)
+  ).length;
 
   const refreshResidentRequests = useCallback(async () => {
     if (!currentUser || isAdminUser(currentUser)) {
@@ -348,6 +385,7 @@ export function AuthProvider({ children }) {
   const canAccess = useCallback((module) => {
     if (!currentUser) return module === 'information';
     const isAdmin = currentUser.appRole === 'admin' && normalizeLevelName(currentUser.niveau) === 'expert';
+    const isExpertResident = currentUser.appRole === 'habitant' && normalizeLevelName(currentUser.niveau) === 'expert';
     switch (module) {
       case 'information':    return true;
       case 'visualisation':  return true;
@@ -356,7 +394,7 @@ export function AuthProvider({ children }) {
       case 'device_create':  return hasMinLevel(currentUser, 'avance');
       case 'device_config':  return hasMinLevel(currentUser, 'avance');
       case 'reports':        return hasMinLevel(currentUser, 'avance');
-      case 'device_delete':  return isAdmin;
+      case 'device_delete':  return isAdmin || isExpertResident;
       case 'administration': return isAdmin;
       case 'users_manage':   return isAdmin;
       case 'settings_manage': return isAdmin;
@@ -364,24 +402,36 @@ export function AuthProvider({ children }) {
     }
   }, [currentUser]);
 
+  const contextValue = useMemo(() => ({
+    users, setUsers,
+    currentUser, setCurrentUser,
+    devices, setDevices,
+    adminRequests, setAdminRequests,
+    pendingAdminRequests, refreshAdminRequests,
+    residentRequests, setResidentRequests,
+    unreadResidentReplies, refreshResidentRequests, markResidentRepliesRead,
+    login, logout, register,
+    createHouse,
+    updateUser, deleteUser, createUser,
+    settings, updateSettings,
+    houseConfig, setHouseConfig,
+    houseConsumption, setHouseConsumption,
+    updateHouseConfig, refreshHouseConsumption,
+    deleteCurrentAccount,
+    logAction,
+    canAccess, computeLevel,
+    loading,
+  }), [
+    users, currentUser, devices, adminRequests, pendingAdminRequests,
+    residentRequests, unreadResidentReplies, settings, houseConfig, houseConsumption, loading,
+    refreshAdminRequests, refreshResidentRequests, markResidentRepliesRead,
+    login, logout, register, createHouse,
+    updateUser, deleteUser, createUser, updateSettings,
+    updateHouseConfig, refreshHouseConsumption, deleteCurrentAccount, logAction, canAccess, computeLevel,
+  ]);
+
   return (
-    <AuthContext.Provider value={{
-      users, setUsers,
-      currentUser, setCurrentUser,
-      devices, setDevices,
-      adminRequests, setAdminRequests,
-      pendingAdminRequests, refreshAdminRequests,
-      residentRequests, setResidentRequests,
-      unreadResidentReplies, refreshResidentRequests, markResidentRepliesRead,
-      login, logout, register,
-      createHouse,
-      updateUser, deleteUser, createUser,
-      settings, updateSettings,
-      deleteCurrentAccount,
-      logAction,
-      canAccess, computeLevel,
-      loading,
-    }}>
+    <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   );

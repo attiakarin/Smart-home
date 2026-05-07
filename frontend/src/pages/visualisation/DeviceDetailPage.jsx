@@ -1,25 +1,99 @@
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useDevices } from '../../context/DevicesContext';
 import { useAuth } from '../../context/AuthContext';
-import { useEffect } from 'react';
-import { ArrowLeft, Wifi, Battery, Thermometer, Zap, Clock, Cpu } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { ArrowLeft, Lock, Wifi, Battery, Thermometer, Zap, Clock, Cpu } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
+import { devicesAPI } from '../../services/api';
+
+// ── Limite de consommation autorisée selon le niveau ─────────────────────────
+function getEnergyLimit(niveau) {
+  const n = (niveau ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  if (n === 'debutant')      return 100;
+  if (n === 'intermediaire') return 150;
+  if (n === 'avance')        return 200;
+  return Infinity; // Expert
+}
 
 export default function DeviceDetailPage() {
   const { id } = useParams();
   const { getDevice } = useDevices();
   const { logAction, currentUser } = useAuth();
   const navigate = useNavigate();
-  const device = getDevice(id);
+  const [deviceDetail, setDeviceDetail] = useState(null);
+  const device = deviceDetail ?? getDevice(id);
+
+  const energyLimit = getEnergyLimit(currentUser?.niveau);
+  const locked = device && Number(device.energyConsumption || 0) > energyLimit;
 
   useEffect(() => {
-    if (device) logAction(currentUser.id);
+    let active = true;
+    devicesAPI.getOne(id).then(d => { if (active) setDeviceDetail(d); }).catch(() => {});
+    return () => { active = false; };
+  }, [id]);
+
+  useEffect(() => {
+    if (device && !locked) logAction(currentUser.id);
   }, [id]); // eslint-disable-line
 
   if (!device) return (
     <div className="container section text-center animate-fade">
       <p>Objet introuvable.</p>
       <Link to="/objets" className="btn btn-outline mt-3">← Retour</Link>
+    </div>
+  );
+
+  // ── Accès restreint ─────────────────────────────────────────────────────────
+  if (locked) return (
+    <div className="container section animate-fade" style={{ maxWidth: 520, margin: '0 auto' }}>
+      <Link to="/objets" className="btn btn-ghost btn-sm mb-4">
+        <ArrowLeft size={15} aria-hidden="true" /> Retour aux objets
+      </Link>
+      <div
+        className="card text-center"
+        style={{ padding: '2.5rem 2rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}
+      >
+        <div
+          style={{
+            width: 72, height: 72, borderRadius: '50%',
+            background: '#f1f5f9',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}
+          aria-hidden="true"
+        >
+          <Lock size={34} color="#94a3b8" />
+        </div>
+        <h1 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#475569' }}>
+          Accès restreint
+        </h1>
+        <p style={{ color: '#64748b', lineHeight: 1.7, maxWidth: 360 }}>
+          Vous n'avez pas le niveau requis pour consulter cet objet.
+          Sa consommation dépasse la limite autorisée pour votre niveau actuel.
+        </p>
+        <div
+          style={{
+            display: 'flex', flexDirection: 'column', gap: '.4rem',
+            background: '#f8fafc', border: '1px solid #e2e8f0',
+            borderRadius: 'var(--radius)', padding: '.75rem 1.2rem',
+            width: '100%', maxWidth: 280, fontSize: '.88rem',
+          }}
+        >
+          <div className="flex items-center" style={{ justifyContent: 'space-between' }}>
+            <span style={{ color: '#64748b' }}>Votre niveau</span>
+            <span className="badge badge-primary">{currentUser?.niveau ?? '—'}</span>
+          </div>
+          <div className="flex items-center" style={{ justifyContent: 'space-between' }}>
+            <span style={{ color: '#64748b' }}>Limite autorisée</span>
+            <span className="badge badge-gray">{energyLimit} kWh</span>
+          </div>
+        </div>
+        <p style={{ fontSize: '.82rem', color: '#94a3b8' }}>
+          Continuez à accumuler des points pour débloquer l'accès aux objets plus puissants.
+        </p>
+        <Link to="/objets" className="btn btn-primary mt-2">
+          ← Retour à la liste
+        </Link>
+      </div>
     </div>
   );
 
@@ -93,23 +167,41 @@ export default function DeviceDetailPage() {
           <div className="card">
             <h2 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '1rem' }}>Historique (30 derniers jours)</h2>
             {device.history && device.history.length > 0 ? (
-              <ResponsiveContainer width="100%" height={220}>
-                <LineChart data={device.history} aria-label="Graphique historique de l'objet">
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                  <XAxis
-                    dataKey="date"
-                    tick={{ fontSize: 10 }}
-                    tickFormatter={v => v.slice(5)}
-                    interval={4}
-                  />
-                  <YAxis tick={{ fontSize: 10 }} />
-                  <Tooltip
-                    labelFormatter={l => `Date: ${l}`}
-                    formatter={(v, n, p) => [`${v} ${p.payload.unit}`, 'Valeur']}
-                  />
-                  <Line type="monotone" dataKey="value" stroke="#1a73e8" strokeWidth={2} dot={false} />
-                </LineChart>
-              </ResponsiveContainer>
+              <>
+                <ResponsiveContainer width="100%" height={220}>
+                  <LineChart data={device.history} aria-label="Graphique historique de l'objet">
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                    <XAxis
+                      dataKey="date"
+                      tick={{ fontSize: 10 }}
+                      tickFormatter={v => new Date(v).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                      interval="preserveStartEnd"
+                    />
+                    <YAxis tick={{ fontSize: 10 }} />
+                    <Tooltip
+                      labelFormatter={l => `Le ${new Date(l).toLocaleString('fr-FR')}`}
+                      formatter={(v, n, p) => [`${v} ${p.payload.unit ?? ''}`, 'Valeur']}
+                    />
+                    <Line type="monotone" dataKey="value" stroke="#1a73e8" strokeWidth={2} dot={{ r: 3 }} />
+                  </LineChart>
+                </ResponsiveContainer>
+                <ul style={{ marginTop: '1rem', listStyle: 'none', padding: 0, display: 'flex', flexDirection: 'column', gap: '.45rem' }}>
+                  {[...device.history].reverse().map((entry, i) => (
+                    <li key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '.6rem', fontSize: '.83rem', borderBottom: '1px solid var(--color-border)', paddingBottom: '.4rem' }}>
+                      <span style={{ color: 'var(--color-text-muted)', whiteSpace: 'nowrap', minWidth: 120 }}>
+                        {new Date(entry.date).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                      {entry.description ? (
+                        <span style={{ color: 'var(--color-text)', fontWeight: 600 }}>{entry.description}</span>
+                      ) : (
+                        <span style={{ color: entry.value === 1 ? '#16a34a' : '#dc2626', fontWeight: 600 }}>
+                          {entry.value === 1 ? '✅ Actif' : '🔴 Inactif'}
+                        </span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </>
             ) : (
               <p style={{ color: 'var(--color-text-muted)', textAlign: 'center', padding: '2rem 0' }}>Pas de données historiques.</p>
             )}

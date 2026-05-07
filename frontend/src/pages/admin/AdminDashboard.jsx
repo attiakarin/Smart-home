@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useDevices } from '../../context/DevicesContext';
@@ -6,7 +6,7 @@ import { Users, Cpu, Settings, BarChart2, Shield, AlertTriangle, Check, X, KeyRo
 import { formatDateTime } from '../../constants/smartHome';
 
 const LEVELS = ['Débutant', 'Intermédiaire', 'Avancé', 'Expert'];
-const LEVEL_POINTS = { Débutant: 0, Intermédiaire: 5, Avancé: 15, Expert: 30 };
+const LEVEL_POINTS = { Débutant: 0, Intermédiaire: 25, Avancé: 50, Expert: 75 };
 const APP_ROLES = [
   { value: 'habitant', label: 'Habitant' },
   { value: 'admin', label: 'Administrateur' },
@@ -19,23 +19,25 @@ function getStatusBadge(status) {
 }
 
 export default function AdminDashboard() {
-  const { users, currentUser, updateUser, deleteUser, adminRequests, pendingAdminRequests }   = useAuth();
+  const { users, currentUser, updateUser, deleteUser, adminRequests, pendingAdminRequests, houseConsumption }   = useAuth();
   const { devices } = useDevices();
   const [rightsByUser, setRightsByUser] = useState({});
 
-  const pendingUsers = users.filter(u => u.status === 'pending');
+  const pendingUsers = useMemo(() => users.filter(u => u.status === 'pending'), [users]);
   const pending  = pendingUsers.length;
-  const approved = users.filter(u => u.status === 'approved').length;
-  const lowBatt  = devices.filter(d => d.battery !== null && d.battery !== undefined && d.battery < 25).length;
-  const inProgressRequests = adminRequests.filter(request => request.status === 'en_cours').length;
+  const approved = useMemo(() => users.filter(u => u.status === 'approved').length, [users]);
+  const lowBatt  = useMemo(() => devices.filter(d => d.battery !== null && d.battery !== undefined && d.battery < 25).length, [devices]);
+  const inProgressRequests = useMemo(() => adminRequests.filter(r => r.status === 'en_cours').length, [adminRequests]);
+  const consumptionExceeded = Boolean(houseConsumption?.exceeded);
 
-  const cards = [
+  const cards = useMemo(() => [
     { to: '/admin/utilisateurs', icon: <Users size={28} />, label: 'Gestion Utilisateurs', value: `${approved} actifs`, extra: pending ? `${pending} en attente` : null, color: '#dbeafe', tc: '#1a73e8' },
     { to: '/admin/objets',       icon: <Cpu size={28} />,   label: 'Gestion Objets',       value: `${devices.length} objets`, extra: lowBatt ? `${lowBatt} batterie faible` : null, color: '#d1fae5', tc: '#22c55e' },
+    { to: '/admin/consommation', icon: <AlertTriangle size={28} />, label: 'Dépassements conso', value: consumptionExceeded ? 'Alerte active' : 'Historique', extra: houseConsumption ? `${Number(houseConsumption.consumptionKwh || 0).toFixed(1)} kWh` : null, color: '#fee2e2', tc: '#ef4444' },
     { to: '/demandes-admin',     icon: <MessageSquare size={28} />, label: 'Demandes habitants', value: `${pendingAdminRequests} nouvelle(s)`, extra: inProgressRequests ? `${inProgressRequests} en cours` : null, color: '#fce7f3', tc: '#db2777' },
     { to: '/gestion/rapports',   icon: <BarChart2 size={28} />, label: 'Rapports',           value: 'Statistiques',     extra: null, color: '#fef3c7', tc: '#f59e0b' },
     { to: '/admin/parametres',   icon: <Settings size={28} />,  label: 'Paramètres',         value: 'Plateforme',       extra: null, color: '#ede9fe', tc: '#8b5cf6' },
-  ];
+  ], [approved, pending, devices.length, lowBatt, consumptionExceeded, houseConsumption, pendingAdminRequests, inProgressRequests]);
 
   const getRights = (user) => ({
     niveau: user.niveau || 'Débutant',

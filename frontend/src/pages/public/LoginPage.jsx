@@ -41,20 +41,6 @@ export default function LoginPage() {
 
           {error && <div className="alert alert-error mb-3" role="alert">{error}</div>}
 
-          {/* Comptes de démonstration */}
-          <details className="mb-3" style={{ fontSize: '.82rem', background: '#f8fafc', borderRadius: 8, padding: '.75rem 1rem' }}>
-            <summary style={{ cursor: 'pointer', fontWeight: 600 }}>Comptes de démo</summary>
-            <ul style={{ marginTop: '.5rem', paddingLeft: '1rem', color: 'var(--color-text-muted)' }}>
-              <li><strong>admin_martin</strong> / Admin2026! — Expert (Admin)</li>
-              <li><strong>jerome_m</strong> / Maison2026! — Avancé (Gestion)</li>
-              <li><strong>lea_martin</strong> / Lea2026! — Intermédiaire</li>
-              <li><strong>tom_m</strong> / Tom2026! — Débutant</li>
-            </ul>
-            <button type="button" className="btn btn-outline btn-sm mt-2" onClick={fillTestAccount}>
-              Utiliser le compte test
-            </button>
-          </details>
-
           <form onSubmit={handleSubmit} noValidate aria-label="Formulaire de connexion">
             <div className="form-group mb-3">
               <label className="form-label" htmlFor="login-id">Pseudonyme</label>
